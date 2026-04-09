@@ -2,49 +2,73 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzePillImage } from "@/lib/gemini";
 import {
   loadDrugDatabase,
+  loadPillIdDatabase,
   loadGlobalDatabase,
+  searchByAttributes,
+  enrichPillIdResults,
   searchDrug,
   searchGlobalDrug,
   type DrugRecord,
   type GlobalDrugRecord,
 } from "@/lib/drugDatabase";
 
-function lookupDrugs(searchTerms: string[], drugName: string) {
+function lookupAll(pill: {
+  shape: string;
+  color: string;
+  imprint: string;
+  drugName: string;
+  searchTerms: string[];
+}) {
   const koreanDb = loadDrugDatabase();
+  const pillIdDb = loadPillIdDatabase();
   const globalDb = loadGlobalDatabase();
 
-  let matched: DrugRecord[] = [];
-  for (const term of searchTerms) {
-    matched.push(...searchDrug(term, koreanDb, 3));
-  }
-  if (drugName && matched.length === 0) {
-    matched.push(...searchDrug(drugName, koreanDb, 3));
-  }
-  const seenK = new Set<string>();
-  matched = matched.filter((d) => {
-    if (seenK.has(d.itemSeq)) return false;
-    seenK.add(d.itemSeq);
-    return true;
-  });
+  // 1. Primary: shape + color + imprint attribute search
+  const attrMatches = searchByAttributes(
+    { shape: pill.shape, color: pill.color, imprint: pill.imprint },
+    pillIdDb,
+    5
+  );
+  const enriched = enrichPillIdResults(attrMatches, koreanDb);
 
-  let global: GlobalDrugRecord[] = [];
-  for (const term of searchTerms) {
-    global.push(...searchGlobalDrug(term, globalDb, 3));
+  // 2. Fallback: name-based Korean search
+  let nameMatches: DrugRecord[] = [];
+  if (enriched.length === 0) {
+    for (const term of pill.searchTerms) {
+      nameMatches.push(...searchDrug(term, koreanDb, 3));
+    }
+    if (nameMatches.length === 0 && pill.drugName !== "Unknown") {
+      nameMatches.push(...searchDrug(pill.drugName, koreanDb, 3));
+    }
+    const seen = new Set<string>();
+    nameMatches = nameMatches.filter((d) => {
+      if (seen.has(d.itemSeq)) return false;
+      seen.add(d.itemSeq);
+      return true;
+    });
   }
-  if (drugName && global.length === 0) {
-    global.push(...searchGlobalDrug(drugName, globalDb, 3));
+
+  // 3. Global DB fallback
+  let globalMatches: GlobalDrugRecord[] = [];
+  if (enriched.length === 0 && nameMatches.length === 0) {
+    for (const term of pill.searchTerms) {
+      globalMatches.push(...searchGlobalDrug(term, globalDb, 3));
+    }
+    const seen = new Set<string>();
+    globalMatches = globalMatches.filter((d) => {
+      const key = d.itemName + d.genericName;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
-  const seenG = new Set<string>();
-  global = global.filter((d) => {
-    const key = d.itemName + d.genericName;
-    if (seenG.has(key)) return false;
-    seenG.add(key);
-    return true;
-  });
 
   return {
-    matchedDrugs: matched.slice(0, 3),
-    globalMatches: global.slice(0, 3),
+    attrMatches: enriched.slice(0, 5),
+    nameMatches: nameMatches.slice(0, 3),
+    globalMatches: globalMatches.slice(0, 3),
+    // searchMethod tells UI which path was used
+    searchMethod: enriched.length > 0 ? "attributes" : nameMatches.length > 0 ? "name" : "global",
   };
 }
 
@@ -53,26 +77,20 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("image") as File | null;
 
-    if (!file) {
-      return NextResponse.json({ error: "No image provided" }, { status: 400 });
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Image too large (max 10MB)" }, { status: 400 });
-    }
+    if (!file) return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: "Image too large (max 10MB)" }, { status: 400 });
+
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
-    }
+    if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
 
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-
-    // Gemini returns array of pills now
     const pills = await analyzePillImage(base64, file.type);
 
-    // DB lookup for each pill type
     const results = pills.map((pill) => ({
       analysis: pill,
-      ...lookupDrugs(pill.searchTerms, pill.drugName),
+      ...lookupAll(pill),
+      // needsClearerPhoto: true if imprint was seen but unreadable AND no confident match
+      needsClearerPhoto: pill.imprintUnclear && pill.confidence < 70,
     }));
 
     return NextResponse.json({
@@ -82,9 +100,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Identify error:", error);
-    return NextResponse.json(
-      { error: "Analysis failed. Please try again." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
   }
 }

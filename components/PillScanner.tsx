@@ -170,6 +170,12 @@ export default function PillScanner({ locale }: PillScannerProps) {
           locale={locale}
           t={t}
           onReset={handleReset}
+          onAddPhoto={() => {
+            setResult(null);
+            setImage(null);
+            setFile(null);
+            setTimeout(() => cameraInputRef.current?.click(), 100);
+          }}
         />
       )}
     </div>
