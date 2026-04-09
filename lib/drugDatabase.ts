@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import path from "path";
 
 export interface DrugRecord {
@@ -19,7 +19,24 @@ export interface DrugRecord {
   source: "korean" | "global";
 }
 
-let _cache: DrugRecord[] | null = null;
+export interface GlobalDrugRecord {
+  source: string;
+  itemName: string;
+  genericName: string;
+  manufacturer: string;
+  ndc: string[];
+  route: string;
+  dosageForm: string;
+  indications: string;
+  warnings: string;
+  dosage: string;
+  sideEffects: string;
+  interactions: string;
+  storage: string;
+}
+
+let _koreanCache: DrugRecord[] | null = null;
+let _globalCache: GlobalDrugRecord[] | null = null;
 
 function parseCSV(content: string): DrugRecord[] {
   const lines = content.split("\n").filter((l) => l.trim());
@@ -55,16 +72,34 @@ function parseCSVLine(line: string): string[] {
 }
 
 export function loadDrugDatabase(): DrugRecord[] {
-  if (_cache) return _cache;
+  if (_koreanCache) return _koreanCache;
   try {
-    const csvPath = path.join(process.cwd(), "..", "druginfo", "의약품_개요정보.csv");
+    const csvPath = path.join(process.cwd(), "data", "korean_drugs.csv");
     const content = readFileSync(csvPath, "utf-8");
-    _cache = parseCSV(content);
-    return _cache;
+    _koreanCache = parseCSV(content);
+    return _koreanCache;
   } catch {
-    console.warn("Drug database CSV not found, using empty DB");
-    _cache = [];
-    return _cache;
+    console.warn("Korean drug database CSV not found");
+    _koreanCache = [];
+    return _koreanCache;
+  }
+}
+
+export function loadGlobalDatabase(): GlobalDrugRecord[] {
+  if (_globalCache) return _globalCache;
+  try {
+    const jsonPath = path.join(process.cwd(), "data", "international_drugs.json");
+    if (!existsSync(jsonPath)) {
+      _globalCache = [];
+      return _globalCache;
+    }
+    const content = readFileSync(jsonPath, "utf-8");
+    _globalCache = JSON.parse(content);
+    return _globalCache || [];
+  } catch {
+    console.warn("International drug database not found");
+    _globalCache = [];
+    return _globalCache;
   }
 }
 
@@ -84,6 +119,31 @@ export function searchDrug(
     else if (name.includes(q)) score = 60;
     else if (q.split("").every((c) => name.includes(c))) score = 30;
     if (company.includes(q)) score += 10;
+    return { drug: d, score };
+  });
+
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN)
+    .map((s) => s.drug);
+}
+
+export function searchGlobalDrug(
+  query: string,
+  drugs: GlobalDrugRecord[],
+  topN = 3
+): GlobalDrugRecord[] {
+  if (!query || !drugs.length) return [];
+  const q = query.toLowerCase().replace(/\s+/g, "");
+
+  const scored = drugs.map((d) => {
+    const name = (d.itemName || "").toLowerCase().replace(/\s+/g, "");
+    const generic = (d.genericName || "").toLowerCase().replace(/\s+/g, "");
+    let score = 0;
+    if (name === q || generic === q) score = 100;
+    else if (name.includes(q) || generic.includes(q)) score = 60;
+    else if (q.split("").every((c) => name.includes(c))) score = 20;
     return { drug: d, score };
   });
 

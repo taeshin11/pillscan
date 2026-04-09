@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzePillImage } from "@/lib/gemini";
-import { loadDrugDatabase, searchDrug, type DrugRecord } from "@/lib/drugDatabase";
+import {
+  loadDrugDatabase,
+  loadGlobalDatabase,
+  searchDrug,
+  searchGlobalDrug,
+  type DrugRecord,
+  type GlobalDrugRecord,
+} from "@/lib/drugDatabase";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,39 +28,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
 
-    // Convert to base64
     const arrayBuffer = await file.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
 
-    // Analyze with Gemini
     const analysis = await analyzePillImage(base64, file.type);
 
-    // Search Korean drug database
-    const db = loadDrugDatabase();
+    // Search Korean DB
+    const koreanDb = loadDrugDatabase();
     let matchedDrugs: DrugRecord[] = [];
-
     for (const term of analysis.searchTerms) {
-      const results = searchDrug(term, db, 3);
-      matchedDrugs.push(...results);
+      matchedDrugs.push(...searchDrug(term, koreanDb, 3));
     }
-
-    // Deduplicate by itemSeq
-    const seen = new Set<string>();
+    if (analysis.drugName && matchedDrugs.length === 0) {
+      matchedDrugs.push(...searchDrug(analysis.drugName, koreanDb, 3));
+    }
+    const seenKorean = new Set<string>();
     matchedDrugs = matchedDrugs.filter((d) => {
-      if (seen.has(d.itemSeq)) return false;
-      seen.add(d.itemSeq);
+      if (seenKorean.has(d.itemSeq)) return false;
+      seenKorean.add(d.itemSeq);
       return true;
     });
 
-    // Also search by drug name directly
-    if (analysis.drugName && matchedDrugs.length === 0) {
-      const directSearch = searchDrug(analysis.drugName, db, 3);
-      matchedDrugs.push(...directSearch);
+    // Search Global DB
+    const globalDb = loadGlobalDatabase();
+    let globalMatches: GlobalDrugRecord[] = [];
+    for (const term of analysis.searchTerms) {
+      globalMatches.push(...searchGlobalDrug(term, globalDb, 3));
     }
+    if (analysis.drugName && globalMatches.length === 0) {
+      globalMatches.push(...searchGlobalDrug(analysis.drugName, globalDb, 3));
+    }
+    const seenGlobal = new Set<string>();
+    globalMatches = globalMatches.filter((d) => {
+      const key = d.itemName + d.genericName;
+      if (seenGlobal.has(key)) return false;
+      seenGlobal.add(key);
+      return true;
+    });
 
     return NextResponse.json({
       analysis,
       matchedDrugs: matchedDrugs.slice(0, 3),
+      globalMatches: globalMatches.slice(0, 3),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -64,4 +80,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
