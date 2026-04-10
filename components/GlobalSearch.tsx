@@ -20,6 +20,7 @@ interface GlobalDrug {
   sideEffects: string;
   interactions: string;
   storage: string;
+  image?: string;
 }
 
 export default function GlobalSearch({ locale }: Props) {
@@ -134,20 +135,30 @@ export default function GlobalSearch({ locale }: Props) {
 function DrugDetail({ drug, locale }: { drug: GlobalDrug; locale: Locale }) {
   return (
     <div className="space-y-3">
-      <div>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-          {t(locale, "drugName")}
-        </div>
-        <div className="font-medium text-lg">{drug.itemName}</div>
-        {drug.genericName && (
-          <div className="text-sm text-[var(--text-muted)]">
-            <span className="text-xs">{t(locale, "globalGenericName")}: </span>
-            {drug.genericName}
+      <div className="flex items-start gap-4">
+        {drug.image && (
+          <img
+            src={drug.image}
+            alt={drug.itemName}
+            className="w-24 h-24 rounded-xl object-contain bg-white border border-[var(--border)] shrink-0 shadow-sm"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
+            {t(locale, "drugName")}
           </div>
-        )}
-        {drug.manufacturer && (
-          <div className="text-sm text-[var(--text-muted)]">{drug.manufacturer}</div>
-        )}
+          <div className="font-medium text-lg">{drug.itemName}</div>
+          {drug.genericName && (
+            <div className="text-sm text-[var(--text-muted)]">
+              <span className="text-xs">{t(locale, "globalGenericName")}: </span>
+              {drug.genericName}
+            </div>
+          )}
+          {drug.manufacturer && (
+            <div className="text-sm text-[var(--text-muted)]">{drug.manufacturer}</div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
