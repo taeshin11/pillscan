@@ -83,51 +83,87 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
         </div>
       )}
 
-      {/* AI Analysis */}
-      <div className="card p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
+      {/* PRIMARY ANSWER — most likely match */}
+      {(() => {
+        // Pick the single most-likely answer:
+        // 1. Top attribute match if exists
+        // 2. Else Gemini's name guess
+        const topMatch = current.attrMatches?.[0];
+        const primaryName = topMatch?.itemName || (analysis.drugName !== "Unknown" ? analysis.drugName : "미식별");
+        const primaryEntp = topMatch?.entpName || analysis.manufacturer || "";
+        const primaryImage = topMatch?.itemImage;
+
+        // Confidence: prefer DB match (higher signal), fall back to Gemini
+        const primaryConfidence = topMatch
+          ? Math.max(70, analysis.confidence)
+          : analysis.confidence;
+        const primaryConfColor =
+          primaryConfidence >= 80 ? "text-green-600" :
+          primaryConfidence >= 60 ? "text-yellow-600" : "text-red-600";
+
+        return (
+          <div className="card p-5 border-2 border-[var(--accent)] bg-gradient-to-br from-[var(--accent-light)] to-white">
             {count > 1 && (
               <span className="text-xs font-semibold text-[var(--accent)] mb-1 block">알약 #{activePill + 1}</span>
             )}
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">
-              {analysis.drugName !== "Unknown"
-                ? analysis.drugName
-                : current.attrMatches?.[0]?.itemName || [analysis.color, analysis.shape].filter(Boolean).join(" ") || "미식별"}
-            </h2>
-            <p className="text-sm text-[var(--text-muted)] mt-0.5">{analysis.description}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <div className={`text-2xl font-bold ${confidenceColor}`}>{analysis.confidence}%</div>
-            <div className="text-xs text-[var(--text-muted)]">{t.confidence}</div>
-          </div>
-        </div>
+            <div className="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2">
+              ⭐ 가장 가능성 높은 약
+            </div>
+            <div className="flex items-start gap-4 mb-3">
+              {primaryImage && (
+                <img
+                  src={primaryImage}
+                  alt={primaryName}
+                  className="w-20 h-20 rounded-xl object-contain bg-white border border-[var(--border)] shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-[var(--text-primary)] leading-tight">{primaryName}</h2>
+                {primaryEntp && (
+                  <p className="text-sm text-[var(--text-muted)] mt-1">{primaryEntp}</p>
+                )}
+                {topMatch?.className && (
+                  <p className="text-xs text-[var(--text-muted)]">{topMatch.className}</p>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className={`text-3xl font-bold ${primaryConfColor}`}>{primaryConfidence}%</div>
+                <div className="text-[10px] text-[var(--text-muted)]">{t.confidence}</div>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap gap-2">
-          {analysis.shape && (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-              ◇ {analysis.shape}
-            </span>
-          )}
-          {analysis.color && (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
-              ● {analysis.color}
-            </span>
-          )}
-          {analysis.imprint ? (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 font-mono">
-              [{analysis.imprint}]
-            </span>
-          ) : analysis.imprintUnclear ? (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">
-              각인 식별 불가
-            </span>
-          ) : null}
-          <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 text-[10px]">
-            {searchMethod === "attributes" ? "모양·색상·각인 검색" : searchMethod === "name" ? "이름 검색" : "글로벌 DB"}
-          </span>
-        </div>
-      </div>
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-[var(--border)]">
+              {(topMatch?.shape || analysis.shape) && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                  ◇ {topMatch?.shape || analysis.shape}
+                </span>
+              )}
+              {(topMatch?.color1 || analysis.color) && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
+                  ● {topMatch?.color1 || analysis.color}{topMatch?.color2 ? `/${topMatch.color2}` : ""}
+                </span>
+              )}
+              {(topMatch?.markFront || analysis.imprint) && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 font-mono">
+                  [{topMatch?.markFront || analysis.imprint}]
+                </span>
+              )}
+              {topMatch?.markBack && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 font-mono">
+                  뒷면: {topMatch.markBack}
+                </span>
+              )}
+            </div>
+
+            {analysis.drugName !== "Unknown" && topMatch && analysis.drugName !== topMatch.itemName && (
+              <p className="text-[10px] text-[var(--text-muted)] mt-3 italic">
+                AI 추측: "{analysis.drugName}" — DB 매칭 결과를 우선 표시합니다
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ⚠️ Clearer photo needed — show when ANY pill is low confidence or has no imprint */}
       {(needsClearerPhoto || analysis.drugName === "Unknown" || analysis.confidence < 80 || !analysis.imprint) && (
