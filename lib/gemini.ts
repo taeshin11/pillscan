@@ -6,8 +6,8 @@ export interface PillAnalysis {
   drugName: string;
   shape: string;
   color: string;
-  imprint: string;        // text clearly visible on this photo
-  imprintUnclear: boolean; // true if imprint exists but can't be read clearly
+  imprint: string;
+  imprintUnclear: boolean;
   manufacturer?: string;
   description: string;
   confidence: number;
@@ -35,30 +35,64 @@ Respond in JSON format only — an array:
 ]
 
 Critical rules:
-- shape MUST be one of the listed Korean categories (원형/타원형/장방형/삼각형/사각형/마름모형/오각형/육각형/팔각형/반원형/캡슐/기타)
+- shape MUST be one of the listed Korean categories
 - color MUST use the listed Korean color names
 - imprint: read the actual text stamped/printed on the pill surface very carefully
-- Set imprintUnclear=true if you can see there IS text on the pill but can't read it clearly due to image angle/quality
+- Set imprintUnclear=true if you can see there IS text but can't read it clearly
 - If multiple pills of the SAME type, list once. Different types = separate entries.
 - Lower confidence if image quality is poor`;
+
+// Models to try in order (fallback chain)
+const MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-flash-lite-latest",
+];
 
 export async function analyzePillImage(
   imageData: string,
   mimeType: string
 ): Promise<PillAnalysis[]> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-  const result = await model.generateContent([
+  const content = [
     SYSTEM_PROMPT,
     { inlineData: { data: imageData, mimeType } },
-  ]);
+  ];
 
-  const text = result.response.text();
+  for (let i = 0; i < MODELS.length; i++) {
+    const modelName = MODELS[i];
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(content);
+      return parseGeminiResponse(result.response.text());
+    } catch (e: any) {
+      const msg = e.message || "";
+      const isRateLimit = msg.includes("429") || msg.includes("quota") || msg.includes("Too Many");
+      const isNotFound = msg.includes("404") || msg.includes("not found");
 
+      // If rate limited or model not found, try next model
+      if ((isRateLimit || isNotFound) && i < MODELS.length - 1) {
+        console.log(`Model ${modelName} failed (${isRateLimit ? "rate limit" : "not found"}), trying ${MODELS[i + 1]}...`);
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+
+      // Last model also failed
+      if (isRateLimit) {
+        throw new Error("서버가 일시적으로 바쁩니다. 잠시 후 다시 시도해주세요.");
+      }
+      throw e;
+    }
+  }
+
+  throw new Error("All models unavailable");
+}
+
+function parseGeminiResponse(text: string): PillAnalysis[] {
   const arrayMatch = text.match(/\[[\s\S]*\]/);
   if (!arrayMatch) {
     const objMatch = text.match(/\{[\s\S]*\}/);
-    if (!objMatch) throw new Error("Invalid response from Gemini API");
+    if (!objMatch) throw new Error("AI 응답을 파싱할 수 없습니다. 다시 시도해주세요.");
     return [normalizePill(JSON.parse(objMatch[0]))];
   }
 
