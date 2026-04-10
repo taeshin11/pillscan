@@ -84,6 +84,35 @@ function parseCSVLine(line: string): string[] {
 // ── Loaders ─────────────────────────────────────────────────────
 export function loadDrugDatabase(): DrugRecord[] {
   if (_koreanCache) return _koreanCache;
+
+  // Try the COMPLETE merged file first (includes nedrug-scraped + e약은요)
+  try {
+    const completePath = path.join(process.cwd(), "data", "drug_details_complete.json");
+    if (existsSync(completePath)) {
+      const completeData = JSON.parse(readFileSync(completePath, "utf-8"));
+      _koreanCache = Object.entries(completeData).map(([itemSeq, d]: [string, any]) => ({
+        itemSeq,
+        itemName: d.itemName || "",
+        entpName: d.entpName || "",
+        efcyQesitm: d.efcyQesitm || "",
+        useMethodQesitm: d.useMethodQesitm || "",
+        atpnWarnQesitm: d.atpnWarnQesitm || "",
+        atpnQesitm: d.atpnQesitm || "",
+        intrcQesitm: d.intrcQesitm || "",
+        seQesitm: d.seQesitm || "",
+        depositMethodQesitm: d.depositMethodQesitm || "",
+        openDe: "",
+        updateDe: "",
+        itemImage: d.itemImage || "",
+        bizrno: "",
+        source: "korean" as const,
+      }));
+      console.log(`[DB] Loaded ${_koreanCache.length} drugs from drug_details_complete.json`);
+      return _koreanCache;
+    }
+  } catch (e) { console.warn("complete DB load failed", e); }
+
+  // Fallback: legacy CSV (4,712 records)
   try {
     const content = readFileSync(path.join(process.cwd(), "data", "korean_drugs.csv"), "utf-8");
     _koreanCache = parseCSV(content);
