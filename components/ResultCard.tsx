@@ -9,9 +9,10 @@ interface ResultCardProps {
   t: Record<string, string>;
   onReset: () => void;
   onAddPhoto?: () => void;
+  uploadedFiles?: File[];
 }
 
-export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCardProps) {
+export default function ResultCard({ result, t, onReset, onAddPhoto, uploadedFiles }: ResultCardProps) {
   const { pills, count } = result;
   const [activePill, setActivePill] = useState(0);
   const [contributed, setContributed] = useState(false);
@@ -24,17 +25,30 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
 
   const handleContribute = async () => {
     try {
-      await fetch("/api/contribute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          drugName: analysis.drugName,
-          shape: analysis.shape,
-          color: analysis.color,
-          imprint: analysis.imprint,
-          confidence: analysis.confidence,
-        }),
-      });
+      // If we have the uploaded files, send the IMAGE for actual training data
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        const formData = new FormData();
+        formData.append("image", uploadedFiles[0]);
+        formData.append("drugName", analysis.drugName || "");
+        formData.append("shape", analysis.shape || "");
+        formData.append("color", analysis.color || "");
+        formData.append("imprint", analysis.imprint || "");
+        formData.append("confidence", String(analysis.confidence || 0));
+        await fetch("/api/contribute", { method: "POST", body: formData });
+      } else {
+        // Metadata only fallback
+        await fetch("/api/contribute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            drugName: analysis.drugName,
+            shape: analysis.shape,
+            color: analysis.color,
+            imprint: analysis.imprint,
+            confidence: analysis.confidence,
+          }),
+        });
+      }
     } finally {
       setContributed(true);
       setShowContribute(false);
@@ -199,21 +213,39 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
 
       {/* Data contribution */}
       {showContribute && !contributed && (
-        <div className="card p-4">
-          <p className="text-sm font-medium text-[var(--text-primary)] mb-1">{t.contributeTitle}</p>
-          <p className="text-xs text-[var(--text-muted)] mb-3">{t.contributeText}</p>
+        <div className="card p-5 border-2 border-dashed border-[var(--accent)] bg-gradient-to-br from-[var(--accent-light)] to-white">
+          <div className="flex items-start gap-3 mb-3">
+            <span className="text-3xl">🎁</span>
+            <div className="flex-1">
+              <p className="text-base font-semibold text-[var(--text-primary)] mb-1">
+                AI 정확도 개선에 도움 주세요
+              </p>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                이 사진을 PillScan AI 학습 데이터로 기여하시겠어요?
+                동의하시면 더 정확한 알약 식별 서비스를 만드는 데 직접 활용됩니다.
+              </p>
+            </div>
+          </div>
+
+          <ul className="text-[11px] text-[var(--text-muted)] space-y-1 mb-4 pl-2 list-none">
+            <li>✓ <strong>익명 저장</strong> — 개인정보·IP·계정 연동 없음</li>
+            <li>✓ <strong>완전 옵트인</strong> — 동의 안 해도 모든 기능 사용 가능</li>
+            <li>✓ <strong>오직 모델 학습용</strong> — 외부 공개·판매 없음</li>
+            <li>✓ <strong>언제든 삭제 요청 가능</strong> — taeshinkim11@gmail.com</li>
+          </ul>
+
           <div className="flex gap-2">
             <button
               onClick={handleContribute}
-              className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--accent)] text-white hover:bg-[#6a8880] transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[var(--accent)] text-white hover:bg-[#6a8880] transition-colors"
             >
-              {t.contributeYes}
+              ✓ 기여하기
             </button>
             <button
               onClick={() => setShowContribute(false)}
-              className="px-4 py-2 rounded-xl text-sm font-medium border border-[var(--border)] hover:bg-gray-50 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[var(--border)] bg-white hover:bg-gray-50 transition-colors"
             >
-              {t.contributeNo}
+              괜찮아요
             </button>
           </div>
         </div>

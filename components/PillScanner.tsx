@@ -263,6 +263,7 @@ export default function PillScanner({ locale }: PillScannerProps) {
           locale={locale}
           t={t}
           onReset={handleReset}
+          uploadedFiles={images.map((s) => s.file)}
           onAddPhoto={() => {
             setResult(null);
             setImages([]);

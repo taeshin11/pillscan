@@ -36,8 +36,24 @@ export default function PrivacyPage() {
         <h3 className="font-semibold mt-4 mb-2">2.1 Information You Provide</h3>
         <p className="leading-relaxed text-[var(--text-primary)] mb-3">
           When you use PillScan to identify a pill, you upload an image file from your device. This image is
-          transmitted to our servers, processed in memory by our AI analysis pipeline, and then immediately
-          discarded. We do not save, archive, or share your uploaded images with any third party.
+          transmitted to our servers and processed by our AI analysis pipeline. By default, the image is
+          discarded immediately after analysis and never saved.
+        </p>
+        <p className="leading-relaxed text-[var(--text-primary)] mb-3">
+          <strong>Optional Data Contribution:</strong> After receiving your identification result, you may
+          choose to contribute the image to PillScan's AI training dataset by clicking the explicit
+          "기여하기 / Contribute" button. This is entirely optional and opt-in. If you consent:
+        </p>
+        <ul className="list-disc pl-6 space-y-1 text-[var(--text-primary)] mb-3">
+          <li>The image is stored anonymously with a random UUID identifier</li>
+          <li>No IP address, account, email, or device identifier is linked to the image</li>
+          <li>The image is used only to improve PillScan's pill identification accuracy</li>
+          <li>The image is never sold, shared with advertisers, or made publicly available</li>
+          <li>You may request deletion at any time by emailing <a href="mailto:taeshinkim11@gmail.com" className="text-[var(--accent)] underline">taeshinkim11@gmail.com</a></li>
+        </ul>
+        <p className="leading-relaxed text-[var(--text-primary)] mb-3">
+          If you do not click the contribute button, your image is permanently discarded after analysis
+          and we retain no copy of it.
         </p>
 
         <h3 className="font-semibold mt-4 mb-2">2.2 Automatically Collected Information</h3>
