@@ -55,20 +55,29 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
             💊 {count}종류 알약 감지됨
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {pills.map((p: any, i: number) => (
-              <button
-                key={i}
-                onClick={() => setActivePill(i)}
-                className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  activePill === i
-                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
-                    : "bg-white text-[var(--text-primary)] border-[var(--border)] hover:border-[var(--accent)]"
-                }`}
-              >
-                <span className="font-bold">#{i + 1}</span>
-                <span className="mt-0.5 max-w-[80px] truncate">{p.analysis.drugName}</span>
-              </button>
-            ))}
+            {pills.map((p: any, i: number) => {
+              const a = p.analysis;
+              const topMatch = p.attrMatches?.[0]?.itemName;
+              const label = topMatch
+                ? topMatch.slice(0, 10)
+                : a.drugName !== "Unknown"
+                  ? a.drugName
+                  : [a.color, a.shape].filter(Boolean).join(" ") || `알약 ${i+1}`;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setActivePill(i)}
+                  className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
+                    activePill === i
+                      ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                      : "bg-white text-[var(--text-primary)] border-[var(--border)] hover:border-[var(--accent)]"
+                  }`}
+                >
+                  <span className="font-bold">#{i + 1}</span>
+                  <span className="mt-0.5 max-w-[100px] truncate">{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -80,7 +89,11 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
             {count > 1 && (
               <span className="text-xs font-semibold text-[var(--accent)] mb-1 block">알약 #{activePill + 1}</span>
             )}
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">{analysis.drugName}</h2>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">
+              {analysis.drugName !== "Unknown"
+                ? analysis.drugName
+                : current.attrMatches?.[0]?.itemName || [analysis.color, analysis.shape].filter(Boolean).join(" ") || "미식별"}
+            </h2>
             <p className="text-sm text-[var(--text-muted)] mt-0.5">{analysis.description}</p>
           </div>
           <div className="text-right shrink-0">
