@@ -45,3 +45,5 @@ next-env.d.ts
 # Local pill image cache (too large for git)
 data/pill_images/
 data/image_download_progress.json
+data/scraped_images/
+data/scrape_progress.json
