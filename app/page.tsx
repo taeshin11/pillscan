@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { detectLocale } from "@/lib/translations";
-import PillScanner from "@/components/PillScanner";
+import TabContainer from "@/components/TabContainer";
 import { translations } from "@/lib/translations";
 import type { Metadata } from "next";
 
@@ -82,9 +82,9 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Main scanner */}
+        {/* Main content */}
         <main className="flex-1 pb-12">
-          <PillScanner locale={locale} />
+          <TabContainer locale={locale} />
         </main>
 
         {/* Footer */}
