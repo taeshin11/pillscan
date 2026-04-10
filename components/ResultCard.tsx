@@ -128,22 +128,23 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
         </div>
       </div>
 
-      {/* ⚠️ Clearer photo needed */}
-      {needsClearerPhoto && (
+      {/* ⚠️ Clearer photo needed — show when ANY pill is low confidence or has no imprint */}
+      {(needsClearerPhoto || analysis.drugName === "Unknown" || analysis.confidence < 80 || !analysis.imprint) && (
         <div className="card p-4 border-l-4 border-yellow-400 bg-yellow-50">
           <p className="text-sm font-semibold text-yellow-800 mb-1">
-            📸 글씨가 잘 보이는 면을 추가로 찍어주세요
+            📸 더 정확한 결과를 원하시면
           </p>
-          <p className="text-xs text-yellow-700 mb-3">
-            알약에 각인/인쇄된 글씨가 보이지만 선명하게 읽히지 않아요.
-            글씨가 잘 보이는 면을 정면에서, 밝은 곳에서 촬영하면 더 정확하게 식별할 수 있어요.
-          </p>
+          <ul className="text-xs text-yellow-700 mb-3 space-y-1 list-none">
+            <li>• 알약을 봉지에서 <strong>꺼내서</strong> 촬영해주세요</li>
+            <li>• 글씨/각인이 보이는 면을 <strong>최대한 가까이</strong> 찍어주세요</li>
+            <li>• <strong>앞면과 뒷면</strong> 각각 촬영하면 더 정확해요</li>
+          </ul>
           {onAddPhoto && (
             <button
               onClick={onAddPhoto}
               className="px-4 py-2 rounded-xl text-sm font-medium bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
             >
-              📷 다른 면 촬영하기
+              📷 다시 촬영하기
             </button>
           )}
         </div>

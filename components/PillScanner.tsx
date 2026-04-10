@@ -113,6 +113,16 @@ export default function PillScanner({ locale }: PillScannerProps) {
                 <p className="text-lg font-semibold text-[var(--text-primary)]">{t.uploadPrompt}</p>
                 <p className="text-sm text-[var(--text-muted)] mt-1">{t.uploadHint}</p>
               </div>
+              {/* Photo guide */}
+              <div className="w-full max-w-sm bg-[var(--accent-light)] rounded-xl p-3 text-left space-y-1.5">
+                <p className="text-xs font-semibold text-[var(--accent)]">📸 정확한 식별을 위한 촬영 팁</p>
+                <ul className="text-xs text-[var(--text-muted)] space-y-1 list-none">
+                  <li>✓ 알약을 봉지에서 <strong>꺼내서</strong> 촬영</li>
+                  <li>✓ 글씨/각인이 보이는 면을 <strong>가까이</strong> 촬영</li>
+                  <li>✓ 앞·뒷면 모두 찍으면 정확도 UP</li>
+                  <li>✓ 밝은 곳에서, 배경은 단색으로</li>
+                </ul>
+              </div>
               <div className="flex gap-3 flex-wrap justify-center">
                 <button
                   onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}
