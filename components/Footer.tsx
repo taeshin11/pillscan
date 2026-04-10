@@ -42,7 +42,15 @@ export default function Footer() {
         {/* Bottom: copyright + disclaimer */}
         <div className="pt-5 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
           <div>
-            © 2026 PillScan · Produced by SPINAI
+            © 2026 PillScan · Produced by{" "}
+            <a
+              href="https://www.spinai.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--accent)] hover:underline font-medium"
+            >
+              SPINAI
+            </a>
           </div>
           <div className="text-center opacity-70">
             ⚕️ Not a substitute for professional medical advice

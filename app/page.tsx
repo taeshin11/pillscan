@@ -87,24 +87,6 @@ export default async function HomePage() {
           <TabContainer locale={locale} />
         </main>
 
-        {/* Footer */}
-        <footer className="border-t border-[var(--border)] py-5 px-4">
-          <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-            <div className="flex items-center gap-3">
-              <span>{t.footerBrand}</span>
-              <span className="opacity-30">·</span>
-              <a
-                href={`mailto:taeshinkim11@gmail.com?subject=PillScan 개선 제안`}
-                className="hover:text-[var(--accent)] transition-colors"
-              >
-                {t.feedbackBtn}
-              </a>
-            </div>
-            <div className="opacity-60 text-center">
-              ⚕️ 의료 전문가의 판단을 대체하지 않습니다
-            </div>
-          </div>
-        </footer>
       </div>
     </>
   );
