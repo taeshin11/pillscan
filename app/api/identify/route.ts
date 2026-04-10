@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzePillImage } from "@/lib/gemini";
+import { readFileSync, existsSync } from "fs";
+import path from "path";
+import { analyzePillImage, visualReRank, type VisualMatchCandidate } from "@/lib/gemini";
 import {
   loadDrugDatabase,
   loadPillIdDatabase,
@@ -12,6 +14,19 @@ import {
   type GlobalDrugRecord,
 } from "@/lib/drugDatabase";
 
+const PILL_IMAGES_DIR = path.join(process.cwd(), "data", "pill_images");
+
+function loadReferenceImage(itemSeq: string): { data: string; mimeType: string } | null {
+  try {
+    const imgPath = path.join(PILL_IMAGES_DIR, `${itemSeq}.jpg`);
+    if (!existsSync(imgPath)) return null;
+    const buffer = readFileSync(imgPath);
+    return { data: buffer.toString("base64"), mimeType: "image/jpeg" };
+  } catch {
+    return null;
+  }
+}
+
 function lookupAll(pill: {
   shape: string;
   color: string;
@@ -23,11 +38,11 @@ function lookupAll(pill: {
   const pillIdDb = loadPillIdDatabase();
   const globalDb = loadGlobalDatabase();
 
-  // 1. Primary: shape + color + imprint attribute search
+  // 1. Primary: shape + color + imprint attribute search (top 8 for re-rank)
   const attrMatches = searchByAttributes(
     { shape: pill.shape, color: pill.color, imprint: pill.imprint },
     pillIdDb,
-    5
+    8
   );
   const enriched = enrichPillIdResults(attrMatches, koreanDb);
 
@@ -64,10 +79,9 @@ function lookupAll(pill: {
   }
 
   return {
-    attrMatches: enriched.slice(0, 5),
+    attrMatches: enriched,
     nameMatches: nameMatches.slice(0, 3),
     globalMatches: globalMatches.slice(0, 3),
-    // searchMethod tells UI which path was used
     searchMethod: enriched.length > 0 ? "attributes" : nameMatches.length > 0 ? "name" : "global",
   };
 }
@@ -92,13 +106,57 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Step 1: Gemini extracts shape/color/imprint per pill type
     const pills = await analyzePillImage(imageInputs);
 
-    const results = pills.map((pill) => ({
-      analysis: pill,
-      ...lookupAll(pill),
-      // needsClearerPhoto: true if imprint was seen but unreadable AND no confident match
-      needsClearerPhoto: pill.imprintUnclear && pill.confidence < 70,
+    // Step 2: For each pill, run attribute search + visual re-rank
+    const results = await Promise.all(pills.map(async (pill) => {
+      const lookup = lookupAll(pill);
+
+      // Visual re-rank: only if we have attribute matches AND reference images
+      let visualMatch: { bestSeq: string | null; confidence: number; reason: string } | null = null;
+
+      if (lookup.searchMethod === "attributes" && lookup.attrMatches.length > 1) {
+        // Load reference images for top 5 candidates
+        const candidates: VisualMatchCandidate[] = [];
+        for (const m of lookup.attrMatches.slice(0, 5)) {
+          const refImg = loadReferenceImage(m.itemSeq);
+          if (refImg) {
+            candidates.push({
+              itemSeq: m.itemSeq,
+              itemName: m.itemName,
+              imageData: refImg.data,
+              mimeType: refImg.mimeType,
+            });
+          }
+        }
+
+        if (candidates.length >= 2) {
+          try {
+            visualMatch = await visualReRank(imageInputs, candidates);
+          } catch (e) {
+            console.warn("Visual re-rank failed:", e);
+          }
+        }
+      }
+
+      // Re-order attrMatches: put visual match first
+      let reorderedMatches = lookup.attrMatches.slice(0, 5);
+      if (visualMatch?.bestSeq) {
+        const idx = reorderedMatches.findIndex((m) => m.itemSeq === visualMatch!.bestSeq);
+        if (idx > 0) {
+          const [best] = reorderedMatches.splice(idx, 1);
+          reorderedMatches.unshift(best);
+        }
+      }
+
+      return {
+        analysis: pill,
+        ...lookup,
+        attrMatches: reorderedMatches,
+        visualMatch,
+        needsClearerPhoto: pill.imprintUnclear && pill.confidence < 70 && !visualMatch?.bestSeq,
+      };
     }));
 
     return NextResponse.json({

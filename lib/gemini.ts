@@ -103,6 +103,87 @@ export async function analyzePillImage(
   throw new Error("All models unavailable");
 }
 
+/**
+ * Visual re-rank: given the user's pill photo and N candidate reference images,
+ * ask Gemini to pick the best visual match. This is much more accurate than
+ * pure attribute matching because Gemini compares actual pill appearance.
+ */
+export interface VisualMatchCandidate {
+  itemSeq: string;
+  itemName: string;
+  imageData: string; // base64
+  mimeType: string;
+}
+
+export async function visualReRank(
+  userImages: { data: string; mimeType: string }[],
+  candidates: VisualMatchCandidate[]
+): Promise<{ bestSeq: string | null; confidence: number; reason: string }> {
+  if (candidates.length === 0) {
+    return { bestSeq: null, confidence: 0, reason: "No candidates" };
+  }
+  if (candidates.length === 1) {
+    return { bestSeq: candidates[0].itemSeq, confidence: 60, reason: "Only candidate" };
+  }
+
+  const prompt = `You are a pharmaceutical visual identification expert.
+
+The FIRST image(s) below are photos taken by a user trying to identify their pill.
+The following ${candidates.length} images are official MFDS reference photos of pill candidates.
+
+For each candidate, I will tell you the index and name:
+${candidates.map((c, i) => `[${i + 1}] ${c.itemName} (itemSeq: ${c.itemSeq})`).join("\n")}
+
+Compare the user's pill to each reference image. Look at shape, color, imprint markings, and overall appearance.
+
+Return JSON only:
+{
+  "bestIndex": <1-${candidates.length}>,
+  "confidence": <0-100>,
+  "reason": "brief explanation of why this match"
+}
+
+If NONE of the candidates clearly match the user's pill, return bestIndex: 0 with low confidence.`;
+
+  const content: any[] = [prompt];
+  // User images first
+  for (const img of userImages) {
+    content.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+  }
+  // Candidate reference images
+  for (const c of candidates) {
+    content.push({ inlineData: { data: c.imageData, mimeType: c.mimeType } });
+  }
+
+  for (let i = 0; i < MODELS.length; i++) {
+    try {
+      const model = genAI.getGenerativeModel({ model: MODELS[i] });
+      const result = await model.generateContent(content);
+      const text = result.response.text();
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) continue;
+      const parsed = JSON.parse(match[0]);
+      const idx = parsed.bestIndex || 0;
+      if (idx > 0 && idx <= candidates.length) {
+        return {
+          bestSeq: candidates[idx - 1].itemSeq,
+          confidence: parsed.confidence || 50,
+          reason: parsed.reason || "",
+        };
+      }
+      return { bestSeq: null, confidence: parsed.confidence || 0, reason: parsed.reason || "No clear match" };
+    } catch (e: any) {
+      const msg = e.message || "";
+      if ((msg.includes("429") || msg.includes("404")) && i < MODELS.length - 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+      throw e;
+    }
+  }
+  return { bestSeq: null, confidence: 0, reason: "All models failed" };
+}
+
 export async function countPills(
   imageData: string,
   mimeType: string

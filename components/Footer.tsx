@@ -44,7 +44,7 @@ export default function Footer() {
           <div>
             © 2026 PillScan · Produced by{" "}
             <a
-              href="https://www.spinai.net"
+              href="http://spinai.net"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[var(--accent)] hover:underline font-medium"
