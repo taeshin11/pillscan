@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzePillImage, visualReRank, type VisualMatchCandidate } from "@/lib/gemini";
 import { callInferenceServer, enhanceImage } from "@/lib/inferenceServer";
+import { fetchDrugDetail } from "@/lib/drugDetailFetcher";
 import {
   loadDrugDatabase,
   loadPillIdDatabase,
@@ -206,10 +207,39 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ⚡ Fill in missing detail by fetching from MFDS API at request time
+      // (Many pill_identification records aren't in our local e약은요 cache)
+      const enrichedMatches = await Promise.all(
+        reorderedMatches.map(async (m: any) => {
+          if (m.detail) return m; // already has full info
+          const fetched = await fetchDrugDetail(m.itemSeq, m.itemName);
+          if (fetched) {
+            return {
+              ...m,
+              detail: {
+                itemSeq: m.itemSeq,
+                itemName: fetched.itemName || m.itemName,
+                entpName: fetched.entpName || m.entpName,
+                efcyQesitm: fetched.efcyQesitm || "",
+                useMethodQesitm: fetched.useMethodQesitm || "",
+                atpnWarnQesitm: fetched.atpnWarnQesitm || "",
+                atpnQesitm: fetched.atpnQesitm || "",
+                intrcQesitm: fetched.intrcQesitm || "",
+                seQesitm: fetched.seQesitm || "",
+                depositMethodQesitm: fetched.depositMethodQesitm || "",
+                itemImage: fetched.itemImage || m.itemImage || "",
+              },
+              _fetchedFrom: fetched.source,
+            };
+          }
+          return m;
+        })
+      );
+
       return {
         analysis: pill,
         ...lookup,
-        attrMatches: reorderedMatches,
+        attrMatches: enrichedMatches,
         visualMatch,
         needsClearerPhoto: pill.imprintUnclear && pill.confidence < 70 && !visualMatch?.bestSeq,
       };

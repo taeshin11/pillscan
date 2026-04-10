@@ -342,15 +342,35 @@ function DbResults({
             )}
 
             {/* Detail from e약은요 DB if matched */}
-            {current.detail && <>
-              {current.detail.efcyQesitm    && <InfoRow label={t.efficacy}      value={current.detail.efcyQesitm} />}
-              {current.detail.useMethodQesitm && <InfoRow label={t.dosage}      value={current.detail.useMethodQesitm} />}
-              {current.detail.atpnWarnQesitm  && <InfoRow label={t.precautions} value={current.detail.atpnWarnQesitm} highlight="warning" />}
-              {current.detail.atpnQesitm      && <InfoRow label={t.precautions} value={current.detail.atpnQesitm} />}
-              {current.detail.seQesitm        && <InfoRow label={t.sideEffects} value={current.detail.seQesitm} />}
-              {current.detail.intrcQesitm     && <InfoRow label={t.interactions} value={current.detail.intrcQesitm} />}
-              {current.detail.depositMethodQesitm && <InfoRow label={t.storage} value={current.detail.depositMethodQesitm} />}
-            </>}
+            {current.detail && (current.detail.efcyQesitm || current.detail.useMethodQesitm) ? (
+              <>
+                {current.detail.efcyQesitm    && <InfoRow label={t.efficacy}      value={current.detail.efcyQesitm} />}
+                {current.detail.useMethodQesitm && <InfoRow label={t.dosage}      value={current.detail.useMethodQesitm} />}
+                {current.detail.atpnWarnQesitm  && <InfoRow label={t.precautions} value={current.detail.atpnWarnQesitm} highlight="warning" />}
+                {current.detail.atpnQesitm      && <InfoRow label={t.precautions} value={current.detail.atpnQesitm} />}
+                {current.detail.seQesitm        && <InfoRow label={t.sideEffects} value={current.detail.seQesitm} />}
+                {current.detail.intrcQesitm     && <InfoRow label={t.interactions} value={current.detail.intrcQesitm} />}
+                {current.detail.depositMethodQesitm && <InfoRow label={t.storage} value={current.detail.depositMethodQesitm} />}
+              </>
+            ) : (
+              <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+                <p className="text-sm text-yellow-800 font-medium mb-1">
+                  ℹ️ 상세 효능·용법 정보가 없는 약품입니다
+                </p>
+                <p className="text-xs text-yellow-700 mb-2">
+                  이 약품은 식약처 e약은요 데이터베이스에 등록되지 않았습니다.
+                  정확한 복용 방법은 약사 또는 의사에게 문의해주세요.
+                </p>
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent(current.itemName + " 효능 용법")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-xs px-3 py-1.5 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
+                >
+                  🔍 구글에서 검색
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>
