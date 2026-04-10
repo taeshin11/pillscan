@@ -55,6 +55,28 @@ export async function callInferenceServer(imageBase64: string, mimeType: string)
   }
 }
 
+export async function enhanceImage(imageBase64: string, mimeType: string): Promise<{ data: string; mimeType: string } | null> {
+  if (!SERVER_URL) return null;
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    const blob = new Blob([buffer], { type: mimeType });
+    const formData = new FormData();
+    formData.append("file", blob, "pill.jpg");
+
+    const res = await fetch(`${SERVER_URL}/enhance`, {
+      method: "POST",
+      body: formData,
+      headers: { "ngrok-skip-browser-warning": "1" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { data: data.image, mimeType: data.mimeType || "image/jpeg" };
+  } catch {
+    return null;
+  }
+}
+
 export async function inferenceServerHealth(): Promise<boolean> {
   if (!SERVER_URL) return false;
   try {

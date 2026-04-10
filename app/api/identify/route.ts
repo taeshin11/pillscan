@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzePillImage, visualReRank, type VisualMatchCandidate } from "@/lib/gemini";
-import { callInferenceServer } from "@/lib/inferenceServer";
+import { callInferenceServer, enhanceImage } from "@/lib/inferenceServer";
 import {
   loadDrugDatabase,
   loadPillIdDatabase,
@@ -112,14 +112,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step 0: Try local inference server first (CLIP + YOLO)
-    // If available, use its visual matches as candidates for re-rank
-    const inferenceResults = await Promise.all(
-      imageInputs.map((img) => callInferenceServer(img.data, img.mimeType))
+    // Step -1: Apply server-side image enhancement (CLAHE + bilateral + edge boost)
+    // for better imprint readability — this is the DexiNed-inspired preprocessing
+    const enhancedInputs = await Promise.all(
+      imageInputs.map(async (img) => {
+        const enh = await enhanceImage(img.data, img.mimeType);
+        return enh || img;
+      })
     );
 
-    // Step 1: Gemini extracts shape/color/imprint per pill type
-    const pills = await analyzePillImage(imageInputs);
+    // Step 0: Try local inference server (CLIP + YOLO) on enhanced images
+    const inferenceResults = await Promise.all(
+      enhancedInputs.map((img) => callInferenceServer(img.data, img.mimeType))
+    );
+
+    // Step 1: Gemini extracts shape/color/imprint from enhanced images
+    const pills = await analyzePillImage(enhancedInputs);
 
     // Inject inference server results into the first pill
     // (since Gemini gives N pills but inference is global per image)
