@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import path from "path";
 import { analyzePillImage, visualReRank, type VisualMatchCandidate } from "@/lib/gemini";
+import { callInferenceServer } from "@/lib/inferenceServer";
 import {
   loadDrugDatabase,
   loadPillIdDatabase,
@@ -14,14 +13,21 @@ import {
   type GlobalDrugRecord,
 } from "@/lib/drugDatabase";
 
-const PILL_IMAGES_DIR = path.join(process.cwd(), "data", "pill_images");
-
-function loadReferenceImage(itemSeq: string): { data: string; mimeType: string } | null {
+/** Fetch reference image from MFDS URL and return as base64. */
+async function fetchReferenceImage(url: string): Promise<{ data: string; mimeType: string } | null> {
+  if (!url) return null;
   try {
-    const imgPath = path.join(PILL_IMAGES_DIR, `${itemSeq}.jpg`);
-    if (!existsSync(imgPath)) return null;
-    const buffer = readFileSync(imgPath);
-    return { data: buffer.toString("base64"), mimeType: "image/jpeg" };
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://nedrug.mfds.go.kr/" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    if (buffer.byteLength < 1000) return null;
+    return {
+      data: Buffer.from(buffer).toString("base64"),
+      mimeType: res.headers.get("content-type") || "image/jpeg",
+    };
   } catch {
     return null;
   }
@@ -106,30 +112,72 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Step 0: Try local inference server first (CLIP + YOLO)
+    // If available, use its visual matches as candidates for re-rank
+    const inferenceResults = await Promise.all(
+      imageInputs.map((img) => callInferenceServer(img.data, img.mimeType))
+    );
+
     // Step 1: Gemini extracts shape/color/imprint per pill type
     const pills = await analyzePillImage(imageInputs);
 
+    // Inject inference server results into the first pill
+    // (since Gemini gives N pills but inference is global per image)
+    const inferenceVisual = inferenceResults
+      .flatMap((r) => r?.visual_matches || [])
+      .sort((a, b) => b.similarity - a.similarity);
+    const inferenceImprint = inferenceResults
+      .map((r) => r?.imprint)
+      .filter(Boolean)
+      .join(" ");
+
+    // If Gemini missed the imprint but YOLO read it, use YOLO's
+    if (inferenceImprint && pills[0] && !pills[0].imprint) {
+      pills[0].imprint = inferenceImprint;
+      pills[0].imprintUnclear = false;
+    }
+
     // Step 2: For each pill, run attribute search + visual re-rank
-    const results = await Promise.all(pills.map(async (pill) => {
+    const results = await Promise.all(pills.map(async (pill, pillIdx) => {
       const lookup = lookupAll(pill);
+
+      // Merge inference server visual matches into attrMatches (only for first pill)
+      if (pillIdx === 0 && inferenceVisual.length > 0) {
+        const koreanDb = loadDrugDatabase();
+        const inferenceEnriched = inferenceVisual.slice(0, 5).map((v) => {
+          const detail = koreanDb.find((d) => d.itemSeq === v.itemSeq);
+          return { ...v, detail, _source: "clip" } as any;
+        });
+        // Prepend CLIP matches, then attribute matches (dedupe by itemSeq)
+        const seen = new Set<string>(inferenceEnriched.map((m) => m.itemSeq));
+        const combined = [
+          ...inferenceEnriched,
+          ...lookup.attrMatches.filter((m) => !seen.has(m.itemSeq)),
+        ].slice(0, 8);
+        lookup.attrMatches = combined as any;
+        if (lookup.searchMethod === "name" || lookup.searchMethod === "global") {
+          lookup.searchMethod = "attributes";
+        }
+      }
 
       // Visual re-rank: only if we have attribute matches AND reference images
       let visualMatch: { bestSeq: string | null; confidence: number; reason: string } | null = null;
 
       if (lookup.searchMethod === "attributes" && lookup.attrMatches.length > 1) {
-        // Load reference images for top 5 candidates
-        const candidates: VisualMatchCandidate[] = [];
-        for (const m of lookup.attrMatches.slice(0, 5)) {
-          const refImg = loadReferenceImage(m.itemSeq);
-          if (refImg) {
-            candidates.push({
+        // Fetch reference images in parallel for top 5 candidates
+        const top5 = lookup.attrMatches.slice(0, 5);
+        const fetched = await Promise.all(
+          top5.map(async (m) => {
+            const refImg = await fetchReferenceImage(m.itemImage);
+            return refImg ? {
               itemSeq: m.itemSeq,
               itemName: m.itemName,
               imageData: refImg.data,
               mimeType: refImg.mimeType,
-            });
-          }
-        }
+            } : null;
+          })
+        );
+        const candidates = fetched.filter((c): c is VisualMatchCandidate => c !== null);
 
         if (candidates.length >= 2) {
           try {

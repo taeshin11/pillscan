@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Local pill image cache (too large for git)
+data/pill_images/
+data/image_download_progress.json
