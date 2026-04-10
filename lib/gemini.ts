@@ -16,12 +16,13 @@ export interface PillAnalysis {
   count: number; // how many of this type
 }
 
-const SYSTEM_PROMPT = `You are a pharmaceutical expert specializing in pill identification. Analyze the image carefully.
+const SYSTEM_PROMPT = `You are a pharmaceutical expert specializing in pill identification. You may receive MULTIPLE images of the SAME pills (e.g. front and back side, or different angles). Treat them as views of the same medication set.
 
 Tasks:
-1. Identify ALL distinct pill types visible
-2. Count the exact number of each type
-3. Read imprints as carefully as possible (zoom into text on pill surface)
+1. Identify ALL distinct pill types visible across ALL images
+2. Combine information from multiple angles — front imprint + back imprint = same pill
+3. Count the exact number of each type (do NOT double-count the same pill seen from front and back)
+4. Read imprints as carefully as possible (zoom into text on pill surface)
 
 Respond in JSON format only — an array:
 
@@ -63,13 +64,18 @@ const MODELS = [
 ];
 
 export async function analyzePillImage(
-  imageData: string,
-  mimeType: string
+  inputs: { data: string; mimeType: string }[] | string,
+  legacyMimeType?: string
 ): Promise<PillAnalysis[]> {
-  const content = [
-    SYSTEM_PROMPT,
-    { inlineData: { data: imageData, mimeType } },
-  ];
+  // Support both new multi-image and legacy single-image signature
+  const images = typeof inputs === "string"
+    ? [{ data: inputs, mimeType: legacyMimeType! }]
+    : inputs;
+
+  const content: any[] = [SYSTEM_PROMPT];
+  for (const img of images) {
+    content.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+  }
 
   for (let i = 0; i < MODELS.length; i++) {
     const modelName = MODELS[i];

@@ -75,16 +75,24 @@ function lookupAll(pill: {
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const file = formData.get("image") as File | null;
+    const files = formData.getAll("image") as File[];
 
-    if (!file) return NextResponse.json({ error: "No image provided" }, { status: 400 });
-    if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: "Image too large (max 10MB)" }, { status: 400 });
+    if (!files.length) return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    if (files.length > 4) return NextResponse.json({ error: "Maximum 4 images" }, { status: 400 });
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+    const imageInputs: { data: string; mimeType: string }[] = [];
 
-    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    const pills = await analyzePillImage(base64, file.type);
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: "Image too large (max 10MB)" }, { status: 400 });
+      if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+      imageInputs.push({
+        data: Buffer.from(await file.arrayBuffer()).toString("base64"),
+        mimeType: file.type,
+      });
+    }
+
+    const pills = await analyzePillImage(imageInputs);
 
     const results = pills.map((pill) => ({
       analysis: pill,
