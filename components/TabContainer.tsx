@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/translations";
 import { translations } from "@/lib/translations";
 import PillScanner from "./PillScanner";
 import ManualSearch from "./ManualSearch";
+import PillCounter from "./PillCounter";
 
 interface TabContainerProps {
   locale: Locale;
@@ -12,42 +13,37 @@ interface TabContainerProps {
 
 export default function TabContainer({ locale }: TabContainerProps) {
   const t = translations[locale];
-  const [activeTab, setActiveTab] = useState<"photo" | "manual">("photo");
+  const [activeTab, setActiveTab] = useState<"photo" | "manual" | "count">("photo");
+
+  const tabs = [
+    { id: "photo" as const, label: "📷 사진으로 찾기" },
+    { id: "manual" as const, label: "🔍 모양으로 찾기" },
+    { id: "count" as const, label: "🔢 개수 세기" },
+  ];
 
   return (
     <div>
-      {/* Tabs */}
       <div className="max-w-2xl mx-auto px-4 mb-6">
         <div className="flex rounded-xl bg-white border border-[var(--border)] p-1">
-          <button
-            onClick={() => setActiveTab("photo")}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "photo"
-                ? "bg-[var(--accent)] text-white shadow-sm"
-                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            📷 사진으로 찾기
-          </button>
-          <button
-            onClick={() => setActiveTab("manual")}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "manual"
-                ? "bg-[var(--accent)] text-white shadow-sm"
-                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            🔍 약 모양으로 찾기
-          </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? "bg-[var(--accent)] text-white shadow-sm"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Content */}
-      {activeTab === "photo" ? (
-        <PillScanner locale={locale} />
-      ) : (
-        <ManualSearch t={t} />
-      )}
+      {activeTab === "photo" && <PillScanner locale={locale} />}
+      {activeTab === "manual" && <ManualSearch t={t} />}
+      {activeTab === "count" && <PillCounter />}
     </div>
   );
 }

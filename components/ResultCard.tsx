@@ -52,7 +52,7 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
       {count > 1 && (
         <div className="card p-4">
           <p className="text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-wide">
-            💊 {count}종류 알약 감지됨
+            💊 {count}종류 알약 감지됨 (총 {pills.reduce((s: number, p: any) => s + (p.analysis.count || 1), 0)}개)
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {pills.map((p: any, i: number) => {
@@ -75,6 +75,7 @@ export default function ResultCard({ result, t, onReset, onAddPhoto }: ResultCar
                 >
                   <span className="font-bold">#{i + 1}</span>
                   <span className="mt-0.5 max-w-[100px] truncate">{label}</span>
+                  {a.count > 1 && <span className="text-[10px] opacity-70">×{a.count}</span>}
                 </button>
               );
             })}

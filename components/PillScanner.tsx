@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { Locale } from "@/lib/translations";
 import { translations } from "@/lib/translations";
+import { preprocessImageClient } from "@/lib/imagePreprocess";
 import ResultCard from "./ResultCard";
 
 interface PillScannerProps {
@@ -38,21 +39,28 @@ export default function PillScanner({ locale }: PillScannerProps) {
   };
 
   const handleAnalyze = async () => {
-    if (!file) return;
+    if (!file || !image) return;
     setLoading(true);
     setError(null);
     setResult(null);
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
+      // Client-side preprocessing: contrast + sharpen for better imprint reading
+      const enhanced = await preprocessImageClient(image);
+
+      // Convert enhanced dataURL back to File
+      const blob = await (await fetch(enhanced)).blob();
+      const enhancedFile = new File([blob], file.name, { type: "image/jpeg" });
+
+      const formData = new FormData();
+      formData.append("image", enhancedFile);
+
       const res = await fetch("/api/identify", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setResult(data);
     } catch (e: any) {
-      setError(e.message || "Analysis failed. Please try again.");
+      setError(e.message || "분석에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
