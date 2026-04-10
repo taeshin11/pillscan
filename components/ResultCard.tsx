@@ -116,13 +116,20 @@ export default function ResultCard({ result, t, onReset, onAddPhoto, uploadedFil
           primaryConfidence >= 60 ? "text-yellow-600" : "text-red-600";
 
         return (
-          <div className="card p-5 border-2 border-[var(--accent)] bg-gradient-to-br from-[var(--accent-light)] to-white">
-            {count > 1 && (
-              <span className="text-xs font-semibold text-[var(--accent)] mb-1 block">알약 #{activePill + 1}</span>
-            )}
-            <div className="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2">
-              ⭐ 가장 가능성 높은 약
+          <div className="card p-5 border-2 border-[var(--accent)] bg-gradient-to-br from-[var(--accent-light)] to-white relative overflow-hidden">
+            {/* Bold attention-grabbing badge */}
+            <div className="absolute -top-px -left-px">
+              <div className="bg-[var(--accent)] text-white px-4 py-2 rounded-br-2xl shadow-lg flex items-center gap-1.5">
+                <span className="text-base">⭐</span>
+                <span className="text-sm font-bold tracking-wide">가장 가능성 높은 약</span>
+              </div>
             </div>
+            {count > 1 && (
+              <span className="absolute top-3 right-3 text-xs font-semibold text-[var(--accent)] bg-white px-2 py-0.5 rounded-full border border-[var(--accent)]">
+                알약 #{activePill + 1}
+              </span>
+            )}
+            <div className="h-12"></div>
             <div className="flex items-start gap-4 mb-3">
               {primaryImage && (
                 <img
