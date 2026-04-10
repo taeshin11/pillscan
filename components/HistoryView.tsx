@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { loadHistory, deleteHistoryEntry, clearHistory, type HistoryEntry } from "@/lib/history";
+import { t, type Locale } from "@/lib/i18n";
 
-export default function HistoryView() {
+export default function HistoryView({ locale }: { locale: Locale }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [mounted, setMounted] = useState(false);
 
@@ -18,7 +19,7 @@ export default function HistoryView() {
   };
 
   const handleClearAll = () => {
-    if (confirm("모든 검색 기록을 삭제하시겠습니까?")) {
+    if (confirm(t(locale, "historyDeleteConfirm"))) {
       clearHistory();
       setEntries([]);
     }
@@ -28,11 +29,11 @@ export default function HistoryView() {
     const d = new Date(ts);
     const now = Date.now();
     const diff = now - ts;
-    if (diff < 60000) return "방금 전";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}일 전`;
-    return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+    if (diff < 60000) return t(locale, "historyJustNow");
+    if (diff < 3600000) return t(locale, "historyMinAgo", { n: Math.floor(diff / 60000) });
+    if (diff < 86400000) return t(locale, "historyHourAgo", { n: Math.floor(diff / 3600000) });
+    if (diff < 604800000) return t(locale, "historyDayAgo", { n: Math.floor(diff / 86400000) });
+    return d.toLocaleDateString(locale === "ko" ? "ko-KR" : locale, { month: "short", day: "numeric" });
   };
 
   if (!mounted) return null;
@@ -42,24 +43,20 @@ export default function HistoryView() {
       {entries.length === 0 ? (
         <div className="card p-10 text-center">
           <div className="text-5xl mb-3">📖</div>
-          <p className="text-base font-semibold text-[var(--text-primary)] mb-1">검색 기록이 없습니다</p>
-          <p className="text-sm text-[var(--text-muted)]">
-            사진으로 약을 찾으면 여기에 자동으로 저장됩니다.
-            <br />
-            기록은 이 브라우저에만 저장되며 외부로 전송되지 않아요.
-          </p>
+          <p className="text-base font-semibold text-[var(--text-primary)] mb-1">{t(locale, "historyEmpty")}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t(locale, "historyEmptyHint")}</p>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-[var(--text-muted)]">
-              총 <strong className="text-[var(--text-primary)]">{entries.length}</strong>개의 기록
+              {t(locale, "historyTotal", { n: entries.length })}
             </p>
             <button
               onClick={handleClearAll}
               className="text-xs px-3 py-1.5 rounded-full text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
             >
-              전체 삭제
+              {t(locale, "historyDeleteAll")}
             </button>
           </div>
 
@@ -77,7 +74,7 @@ export default function HistoryView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--accent)] font-medium">
-                        {entry.type === "photo" ? "📷 사진" : "🔍 수동"}
+                        {entry.type === "photo" ? t(locale, "historyTypePhoto") : t(locale, "historyTypeManual")}
                       </span>
                       <span className="text-xs text-[var(--text-muted)] shrink-0">{formatDate(entry.timestamp)}</span>
                     </div>
@@ -96,7 +93,7 @@ export default function HistoryView() {
                           </div>
                         ))}
                         {entry.pills.length > 3 && (
-                          <div className="text-xs text-[var(--text-muted)]">외 {entry.pills.length - 3}개</div>
+                          <div className="text-xs text-[var(--text-muted)]">{t(locale, "historyMore", { n: entry.pills.length - 3 })}</div>
                         )}
                       </div>
                     ) : entry.query ? (
@@ -105,13 +102,13 @@ export default function HistoryView() {
                           .filter(Boolean).join(" · ")}
                       </div>
                     ) : (
-                      <div className="text-sm text-[var(--text-muted)]">결과 없음</div>
+                      <div className="text-sm text-[var(--text-muted)]">{t(locale, "historyNoResult")}</div>
                     )}
                   </div>
                   <button
                     onClick={() => handleDelete(entry.id)}
                     className="text-gray-400 hover:text-red-500 transition-colors shrink-0 self-start"
-                    aria-label="삭제"
+                    aria-label={t(locale, "historyDelete")}
                   >
                     ✕
                   </button>
@@ -121,7 +118,7 @@ export default function HistoryView() {
           </div>
 
           <p className="text-xs text-center text-[var(--text-muted)] mt-4">
-            🔒 기록은 이 기기에만 저장됩니다 (서버 전송 없음)
+            {t(locale, "historyPrivacy")}
           </p>
         </>
       )}

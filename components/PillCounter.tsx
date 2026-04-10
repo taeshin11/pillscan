@@ -2,8 +2,9 @@
 
 import { useState, useRef, useCallback } from "react";
 import { preprocessImageClient } from "@/lib/imagePreprocess";
+import { t, type Locale } from "@/lib/i18n";
 
-export default function PillCounter() {
+export default function PillCounter({ locale }: { locale: Locale }) {
   const [image, setImage] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ export default function PillCounter() {
       if (!res.ok) throw new Error(data.error);
       setResult(data);
     } catch (e: any) {
-      setError(e.message || "개수 세기 실패");
+      setError(e.message || t(locale, "countFailed"));
     } finally {
       setLoading(false);
     }
@@ -60,14 +61,14 @@ export default function PillCounter() {
               <div className="flex gap-3">
                 <button onClick={(e) => { e.stopPropagation(); handleReset(); }}
                   className="px-4 py-2 rounded-xl text-sm font-medium border border-[var(--border)] bg-white">
-                  ✕ 다시
+                  {t(locale, "resetBack")}
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleCount(); }}
                   disabled={loading}
                   className="px-6 py-2 rounded-xl text-sm font-semibold bg-[var(--accent)] text-white disabled:opacity-60 flex items-center gap-2">
                   {loading ? (
-                    <><span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 세는 중...</>
-                  ) : "🔢 약 개수 세기"}
+                    <><span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t(locale, "countingBtn")}</>
+                  ) : t(locale, "countBtn")}
                 </button>
               </div>
             </div>
@@ -75,17 +76,17 @@ export default function PillCounter() {
             <div className="flex flex-col items-center gap-4 py-4">
               <div className="text-5xl">🔢</div>
               <div className="text-center">
-                <p className="text-lg font-semibold text-[var(--text-primary)]">약 개수 세기</p>
-                <p className="text-sm text-[var(--text-muted)] mt-1">약봉지나 알약 사진을 촬영하면 개수를 세어드립니다</p>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{t(locale, "countTitle")}</p>
+                <p className="text-sm text-[var(--text-muted)] mt-1">{t(locale, "countSubtitle")}</p>
               </div>
               <div className="flex gap-3">
                 <button onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
                   className="px-5 py-2.5 rounded-xl text-sm font-medium bg-[var(--accent)] text-white">
-                  📷 촬영
+                  {t(locale, "countCameraBtn")}
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
                   className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[var(--accent)] text-[var(--accent)]">
-                  📁 업로드
+                  {t(locale, "countUploadBtn")}
                 </button>
               </div>
             </div>
@@ -106,17 +107,17 @@ export default function PillCounter() {
         <div className="result-section space-y-4">
           <div className="card p-6 text-center">
             <div className="text-6xl font-bold text-[var(--accent)] mb-2">{result.totalCount}</div>
-            <div className="text-lg font-semibold text-[var(--text-primary)]">알약 총 개수</div>
+            <div className="text-lg font-semibold text-[var(--text-primary)]">{t(locale, "totalCount")}</div>
           </div>
 
           {result.breakdown?.length > 0 && (
             <div className="card p-5">
-              <h3 className="font-semibold text-[var(--text-primary)] mb-3">상세 내역</h3>
+              <h3 className="font-semibold text-[var(--text-primary)] mb-3">{t(locale, "countDetails")}</h3>
               <div className="space-y-2">
                 {result.breakdown.map((item: any, i: number) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
                     <span className="text-sm text-[var(--text-primary)]">{item.description}</span>
-                    <span className="text-lg font-bold text-[var(--accent)]">{item.count}개</span>
+                    <span className="text-lg font-bold text-[var(--accent)]">{t(locale, "countItems", { n: item.count })}</span>
                   </div>
                 ))}
               </div>
@@ -131,7 +132,7 @@ export default function PillCounter() {
 
           <button onClick={handleReset}
             className="w-full py-3 rounded-xl text-sm font-medium border border-[var(--border)] hover:bg-gray-50">
-            🔄 다시 세기
+            {t(locale, "countAgain")}
           </button>
         </div>
       )}

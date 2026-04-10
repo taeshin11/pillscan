@@ -243,7 +243,7 @@ export default function PillScanner({ locale }: PillScannerProps) {
         onChange={(e) => e.target.files && handleFiles(e.target.files)}
       />
 
-      <LoadingProgress active={loading} />
+      <LoadingProgress active={loading} locale={locale} />
 
       {error && (
         <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">

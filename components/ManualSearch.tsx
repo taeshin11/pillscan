@@ -2,49 +2,44 @@
 
 import { useState } from "react";
 import { saveToHistory } from "@/lib/history";
+import { t, type Locale } from "@/lib/i18n";
 
+// shape values stay in Korean (DB internal codes)
 const SHAPES = [
-  { value: "원형", icon: "○", label: "원형" },
-  { value: "타원형", icon: "⬭", label: "타원형" },
-  { value: "반원형", icon: "◗", label: "반원형" },
-  { value: "삼각형", icon: "△", label: "삼각형" },
-  { value: "사각형", icon: "□", label: "사각형" },
-  { value: "마름모형", icon: "◇", label: "마름모형" },
-  { value: "장방형", icon: "▭", label: "장방형" },
-  { value: "오각형", icon: "⬠", label: "오각형" },
-  { value: "육각형", icon: "⬡", label: "육각형" },
-  { value: "팔각형", icon: "⯃", label: "팔각형" },
-  { value: "기타", icon: "…", label: "기타" },
+  { value: "원형", icon: "○", labelKey: "shapeCircle" },
+  { value: "타원형", icon: "⬭", labelKey: "shapeOval" },
+  { value: "반원형", icon: "◗", labelKey: "shapeHalfCircle" },
+  { value: "삼각형", icon: "△", labelKey: "shapeTriangle" },
+  { value: "사각형", icon: "□", labelKey: "shapeSquare" },
+  { value: "마름모형", icon: "◇", labelKey: "shapeDiamond" },
+  { value: "장방형", icon: "▭", labelKey: "shapeRectangle" },
+  { value: "오각형", icon: "⬠", labelKey: "shapePentagon" },
+  { value: "육각형", icon: "⬡", labelKey: "shapeHexagon" },
+  { value: "팔각형", icon: "⯃", labelKey: "shapeOctagon" },
+  { value: "기타", icon: "…", labelKey: "shapeOther" },
 ];
 
 const COLORS = [
-  { value: "하양", hex: "#ffffff", border: true },
-  { value: "노랑", hex: "#FFD700" },
-  { value: "주황", hex: "#FF8C00" },
-  { value: "분홍", hex: "#FF69B4" },
-  { value: "빨강", hex: "#DC143C" },
-  { value: "갈색", hex: "#8B4513" },
-  { value: "연두", hex: "#9ACD32" },
-  { value: "초록", hex: "#228B22" },
-  { value: "청록", hex: "#008B8B" },
-  { value: "파랑", hex: "#2563EB" },
-  { value: "남색", hex: "#191970" },
-  { value: "자주", hex: "#800080" },
-  { value: "보라", hex: "#9370DB" },
-  { value: "회색", hex: "#A9A9A9" },
-  { value: "검정", hex: "#1a1a1a" },
-  { value: "투명", hex: "#f0f0f0", border: true, pattern: true },
-];
-
-const FORMS = [
-  { value: "", label: "전체" },
-  { value: "정제", label: "정제류", icon: "💊" },
-  { value: "경질캡슐", label: "경질캡슐", icon: "💠" },
-  { value: "연질캡슐", label: "연질캡슐", icon: "🟡" },
+  { value: "하양", hex: "#ffffff", border: true, labelKey: "colorWhite" },
+  { value: "노랑", hex: "#FFD700", labelKey: "colorYellow" },
+  { value: "주황", hex: "#FF8C00", labelKey: "colorOrange" },
+  { value: "분홍", hex: "#FF69B4", labelKey: "colorPink" },
+  { value: "빨강", hex: "#DC143C", labelKey: "colorRed" },
+  { value: "갈색", hex: "#8B4513", labelKey: "colorBrown" },
+  { value: "연두", hex: "#9ACD32", labelKey: "colorLightGreen" },
+  { value: "초록", hex: "#228B22", labelKey: "colorGreen" },
+  { value: "청록", hex: "#008B8B", labelKey: "colorTeal" },
+  { value: "파랑", hex: "#2563EB", labelKey: "colorBlue" },
+  { value: "남색", hex: "#191970", labelKey: "colorNavy" },
+  { value: "자주", hex: "#800080", labelKey: "colorPurple" },
+  { value: "보라", hex: "#9370DB", labelKey: "colorViolet" },
+  { value: "회색", hex: "#A9A9A9", labelKey: "colorGray" },
+  { value: "검정", hex: "#1a1a1a", labelKey: "colorBlack" },
+  { value: "투명", hex: "#f0f0f0", border: true, pattern: true, labelKey: "colorTransparent" },
 ];
 
 interface ManualSearchProps {
-  t: Record<string, string>;
+  locale: Locale;
 }
 
 interface SearchResult {
@@ -62,7 +57,7 @@ interface SearchResult {
   detail?: any;
 }
 
-export default function ManualSearch({ t }: ManualSearchProps) {
+export default function ManualSearch({ locale }: ManualSearchProps) {
   const [imprint, setImprint] = useState("");
   const [shape, setShape] = useState("");
   const [color, setColor] = useState("");
@@ -72,9 +67,16 @@ export default function ManualSearch({ t }: ManualSearchProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
+  const FORMS = [
+    { value: "", label: t(locale, "searchAllForms") },
+    { value: "정제", label: t(locale, "formTablet"), icon: "💊" },
+    { value: "경질캡슐", label: t(locale, "formHardCapsule"), icon: "💠" },
+    { value: "연질캡슐", label: t(locale, "formSoftCapsule"), icon: "🟡" },
+  ];
+
   const handleSearch = async () => {
     if (!imprint && !shape && !color) {
-      setError("식별문자, 모양, 색상 중 하나 이상을 선택해주세요.");
+      setError(t(locale, "searchError"));
       return;
     }
     setLoading(true);
@@ -90,7 +92,7 @@ export default function ManualSearch({ t }: ManualSearchProps) {
 
       const res = await fetch(`/api/search-pill?${params}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "검색 실패");
+      if (!res.ok) throw new Error(data.error || t(locale, "searchFailed"));
       setResults(data.results);
       setSelectedIdx(0);
       saveToHistory({
@@ -123,23 +125,23 @@ export default function ManualSearch({ t }: ManualSearchProps) {
   return (
     <div className="w-full max-w-2xl mx-auto px-4">
       <div className="card p-5 space-y-5">
-        {/* Imprint input */}
         <div>
           <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
-            식별문자 : 약의 앞면이나 뒷면의 문자
+            {t(locale, "imprintInputLabel")}
           </label>
           <input
             type="text"
             value={imprint}
             onChange={(e) => setImprint(e.target.value)}
-            placeholder="예: GS, 500, ER"
+            placeholder={t(locale, "imprintInputPlaceholder")}
             className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
           />
         </div>
 
-        {/* Shape selector */}
         <div>
-          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">모양</label>
+          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
+            {t(locale, "shapeLabel")}
+          </label>
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setShape("")}
@@ -147,7 +149,7 @@ export default function ManualSearch({ t }: ManualSearchProps) {
                 !shape ? "bg-[var(--accent)] text-white border-[var(--accent)]" : "border-[var(--border)] hover:border-[var(--accent)]"
               }`}
             >
-              <span className="text-base">전체</span>
+              <span className="text-base">{t(locale, "searchAll")}</span>
             </button>
             {SHAPES.map((s) => (
               <button
@@ -158,15 +160,16 @@ export default function ManualSearch({ t }: ManualSearchProps) {
                 }`}
               >
                 <span className="text-lg leading-none">{s.icon}</span>
-                <span className="mt-1">{s.label}</span>
+                <span className="mt-1">{s.value}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Color selector */}
         <div>
-          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">색상</label>
+          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
+            {t(locale, "colorLabel")}
+          </label>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setColor("")}
@@ -174,8 +177,7 @@ export default function ManualSearch({ t }: ManualSearchProps) {
                 !color ? "bg-[var(--accent)] text-white border-[var(--accent)]" : "border-[var(--border)] hover:border-[var(--accent)]"
               }`}
             >
-              <span className="text-[10px]">색상</span>
-              <span className="text-[10px]">전체</span>
+              <span className="text-[10px]">{t(locale, "searchAllColors")}</span>
             </button>
             {COLORS.map((c) => (
               <button
@@ -186,7 +188,7 @@ export default function ManualSearch({ t }: ManualSearchProps) {
                 }`}
               >
                 <span
-                  className={`w-6 h-6 rounded-full ${c.border ? "border border-gray-300" : ""} ${c.pattern ? "bg-[repeating-conic-gradient(#ccc_0%_25%,transparent_0%_50%)] bg-[length:8px_8px]" : ""}`}
+                  className={`w-6 h-6 rounded-full ${c.border ? "border border-gray-300" : ""}`}
                   style={c.pattern ? {} : { backgroundColor: c.hex }}
                 />
                 <span className="mt-0.5 text-[10px]">{c.value}</span>
@@ -195,9 +197,10 @@ export default function ManualSearch({ t }: ManualSearchProps) {
           </div>
         </div>
 
-        {/* Form selector */}
         <div>
-          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">제형</label>
+          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
+            {t(locale, "formLabel")}
+          </label>
           <div className="flex gap-2">
             {FORMS.map((f) => (
               <button
@@ -214,7 +217,6 @@ export default function ManualSearch({ t }: ManualSearchProps) {
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-3">
           <button
             onClick={handleSearch}
@@ -224,40 +226,38 @@ export default function ManualSearch({ t }: ManualSearchProps) {
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : "🔍"}{" "}
-            약 모양으로 검색
+            {t(locale, "searchByShapeBtn")}
           </button>
           <button
             onClick={handleReset}
             className="px-6 py-3 rounded-xl text-sm font-medium border border-[var(--border)] hover:bg-gray-50 transition-colors"
           >
-            다시 입력
+            {t(locale, "resetBtn")}
           </button>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
           ⚠️ {error}
         </div>
       )}
 
-      {/* Results */}
       {results && (
         <div className="mt-4 space-y-4 result-section">
           <div className="card p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-[var(--text-primary)]">
-                검색 결과 ({results.length}건)
+                {t(locale, "searchResults", { n: results.length })}
               </h3>
               <span className="text-xs px-2 py-1 rounded-full bg-[var(--accent-light)] text-[var(--accent)] font-medium">
-                모양·각인 검색
+                {t(locale, "searchMethodAttr")}
               </span>
             </div>
 
             {results.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                일치하는 약품이 없습니다. 조건을 변경해 보세요.
+                {t(locale, "noManualResult")}
               </p>
             ) : (
               <>
@@ -277,7 +277,7 @@ export default function ManualSearch({ t }: ManualSearchProps) {
                   ))}
                 </div>
 
-                {results[selectedIdx] && <PillDetail pill={results[selectedIdx]} t={t} />}
+                {results[selectedIdx] && <PillDetail pill={results[selectedIdx]} locale={locale} />}
               </>
             )}
           </div>
@@ -287,19 +287,18 @@ export default function ManualSearch({ t }: ManualSearchProps) {
   );
 }
 
-function PillDetail({ pill, t }: { pill: SearchResult; t: Record<string, string> }) {
+function PillDetail({ pill, locale }: { pill: SearchResult; locale: Locale }) {
   return (
     <div className="space-y-3">
-      {/* Attributes */}
       <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-gray-50">
         {pill.shape && <span className="text-xs text-gray-600">◇ {pill.shape}</span>}
         {pill.color1 && <span className="text-xs text-gray-600">● {pill.color1}{pill.color2 ? `/${pill.color2}` : ""}</span>}
-        {pill.markFront && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">앞: {pill.markFront}</span>}
-        {pill.markBack && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">뒤: {pill.markBack}</span>}
+        {pill.markFront && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintFront")}: {pill.markFront}</span>}
+        {pill.markBack && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintBack")}: {pill.markBack}</span>}
       </div>
 
       <div>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{t.drugName}</div>
+        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{t(locale, "drugName")}</div>
         <div className="font-medium text-lg">{pill.itemName}</div>
         <div className="text-sm text-[var(--text-muted)]">{pill.entpName}</div>
         {pill.className && <div className="text-xs text-[var(--text-muted)]">{pill.className}</div>}
@@ -314,20 +313,19 @@ function PillDetail({ pill, t }: { pill: SearchResult; t: Record<string, string>
         />
       )}
 
-      {/* Detail from e약은요 */}
       {pill.detail && (
         <div className="space-y-2 pt-2 border-t border-[var(--border)]">
-          {pill.detail.efcyQesitm && <InfoBlock label={t.efficacy} value={pill.detail.efcyQesitm} />}
-          {pill.detail.useMethodQesitm && <InfoBlock label={t.dosage} value={pill.detail.useMethodQesitm} />}
-          {pill.detail.atpnWarnQesitm && <InfoBlock label={t.precautions} value={pill.detail.atpnWarnQesitm} warn />}
-          {pill.detail.seQesitm && <InfoBlock label={t.sideEffects} value={pill.detail.seQesitm} />}
+          {pill.detail.efcyQesitm && <InfoBlock label={t(locale, "efficacy")} value={pill.detail.efcyQesitm} locale={locale} />}
+          {pill.detail.useMethodQesitm && <InfoBlock label={t(locale, "dosage")} value={pill.detail.useMethodQesitm} locale={locale} />}
+          {pill.detail.atpnWarnQesitm && <InfoBlock label={t(locale, "precautions")} value={pill.detail.atpnWarnQesitm} warn locale={locale} />}
+          {pill.detail.seQesitm && <InfoBlock label={t(locale, "sideEffects")} value={pill.detail.seQesitm} locale={locale} />}
         </div>
       )}
     </div>
   );
 }
 
-function InfoBlock({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function InfoBlock({ label, value, warn, locale }: { label: string; value: string; warn?: boolean; locale: Locale }) {
   const [open, setOpen] = useState(false);
   const short = value.length > 150;
   return (
@@ -338,7 +336,7 @@ function InfoBlock({ label, value, warn }: { label: string; value: string; warn?
       </p>
       {short && (
         <button onClick={() => setOpen(!open)} className="text-xs text-[var(--accent)] mt-1 hover:underline">
-          {open ? "접기" : "더 보기"}
+          {open ? t(locale, "showLess") : t(locale, "showMore")}
         </button>
       )}
     </div>
