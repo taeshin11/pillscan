@@ -6,19 +6,23 @@ import { translations } from "@/lib/translations";
 import PillScanner from "./PillScanner";
 import ManualSearch from "./ManualSearch";
 import PillCounter from "./PillCounter";
+import HistoryView from "./HistoryView";
 
 interface TabContainerProps {
   locale: Locale;
 }
 
+type TabId = "photo" | "manual" | "count" | "history";
+
 export default function TabContainer({ locale }: TabContainerProps) {
   const t = translations[locale];
-  const [activeTab, setActiveTab] = useState<"photo" | "manual" | "count">("photo");
+  const [activeTab, setActiveTab] = useState<TabId>("photo");
 
-  const tabs = [
-    { id: "photo" as const, label: "📷 사진으로 찾기" },
-    { id: "manual" as const, label: "🔍 모양으로 찾기" },
-    { id: "count" as const, label: "🔢 개수 세기" },
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "photo", label: "📷 사진" },
+    { id: "manual", label: "🔍 모양" },
+    { id: "count", label: "🔢 개수" },
+    { id: "history", label: "📖 기록" },
   ];
 
   return (
@@ -29,7 +33,7 @@ export default function TabContainer({ locale }: TabContainerProps) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              className={`flex-1 py-2.5 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 activeTab === tab.id
                   ? "bg-[var(--accent)] text-white shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -44,6 +48,7 @@ export default function TabContainer({ locale }: TabContainerProps) {
       {activeTab === "photo" && <PillScanner locale={locale} />}
       {activeTab === "manual" && <ManualSearch t={t} />}
       {activeTab === "count" && <PillCounter />}
+      {activeTab === "history" && <HistoryView />}
     </div>
   );
 }

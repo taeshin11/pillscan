@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { saveToHistory } from "@/lib/history";
 
 const SHAPES = [
   { value: "원형", icon: "○", label: "원형" },
@@ -92,6 +93,17 @@ export default function ManualSearch({ t }: ManualSearchProps) {
       if (!res.ok) throw new Error(data.error || "검색 실패");
       setResults(data.results);
       setSelectedIdx(0);
+      saveToHistory({
+        type: "manual",
+        timestamp: Date.now(),
+        query: { shape, color, imprint },
+        pills: data.results.slice(0, 5).map((r: any) => ({
+          name: r.itemName,
+          shape: r.shape,
+          color: r.color1,
+          imprint: r.markFront,
+        })),
+      });
     } catch (e: any) {
       setError(e.message);
     } finally {

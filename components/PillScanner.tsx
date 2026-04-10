@@ -4,7 +4,9 @@ import { useState, useRef, useCallback } from "react";
 import type { Locale } from "@/lib/translations";
 import { translations } from "@/lib/translations";
 import { preprocessImageClient } from "@/lib/imagePreprocess";
+import { saveToHistory } from "@/lib/history";
 import ResultCard from "./ResultCard";
+import LoadingProgress from "./LoadingProgress";
 
 interface PillScannerProps {
   locale: Locale;
@@ -59,6 +61,17 @@ export default function PillScanner({ locale }: PillScannerProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setResult(data);
+      saveToHistory({
+        type: "photo",
+        timestamp: Date.now(),
+        thumbnail: enhanced.slice(0, 50000), // small thumbnail
+        pills: data.pills?.map((p: any) => ({
+          name: p.attrMatches?.[0]?.itemName || p.analysis.drugName || "Unknown",
+          shape: p.analysis.shape,
+          color: p.analysis.color,
+          imprint: p.analysis.imprint,
+        })) || [],
+      });
     } catch (e: any) {
       setError(e.message || "분석에 실패했습니다. 다시 시도해주세요.");
     } finally {
@@ -166,6 +179,9 @@ export default function PillScanner({ locale }: PillScannerProps) {
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
       />
+
+      {/* Loading progress */}
+      <LoadingProgress active={loading} />
 
       {/* Error */}
       {error && (
