@@ -43,21 +43,34 @@ interface ManualSearchProps {
 }
 
 interface SearchResult {
-  itemSeq: string;
+  itemSeq?: string;
   itemName: string;
-  entpName: string;
-  shape: string;
-  color1: string;
-  color2: string;
-  markFront: string;
-  markBack: string;
-  itemImage: string;
-  className: string;
-  etcOtc: string;
+  entpName?: string;
+  manufacturer?: string;
+  genericName?: string;
+  shape?: string;
+  color1?: string;
+  color2?: string;
+  markFront?: string;
+  markBack?: string;
+  itemImage?: string;
+  image?: string; // for global drugs
+  className?: string;
+  etcOtc?: string;
   detail?: any;
+  // Global-specific
+  ndc?: string[];
+  route?: string;
+  dosageForm?: string;
+  indications?: string;
+  warnings?: string;
+  dosage?: string;
+  sideEffects?: string;
+  _origin?: "korean" | "global";
 }
 
 export default function ManualSearch({ locale }: ManualSearchProps) {
+  const [name, setName] = useState("");
   const [imprint, setImprint] = useState("");
   const [shape, setShape] = useState("");
   const [color, setColor] = useState("");
@@ -75,7 +88,7 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
   ];
 
   const handleSearch = async () => {
-    if (!imprint && !shape && !color) {
+    if (!name && !imprint && !shape && !color) {
       setError(t(locale, "searchError"));
       return;
     }
@@ -85,6 +98,7 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
 
     try {
       const params = new URLSearchParams();
+      if (name) params.set("name", name);
       if (imprint) params.set("imprint", imprint);
       if (shape) params.set("shape", shape);
       if (color) params.set("color", color);
@@ -114,6 +128,7 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
   };
 
   const handleReset = () => {
+    setName("");
     setImprint("");
     setShape("");
     setColor("");
@@ -125,6 +140,20 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
   return (
     <div className="w-full max-w-2xl mx-auto px-4">
       <div className="card p-5 space-y-5">
+        <div>
+          <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
+            🔍 {t(locale, "drugName")} ({locale === "ko" ? "국내·해외 통합 검색" : "Korean & Global"})
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder={locale === "ko" ? "예: 타이레놀, Tylenol, 아스피린" : "e.g. Tylenol, Aspirin, 타이레놀"}
+            className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
+          />
+        </div>
+
         <div>
           <label className="text-sm font-semibold text-[var(--text-primary)] block mb-2">
             {t(locale, "imprintInputLabel")}
@@ -262,17 +291,18 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
             ) : (
               <>
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-                  {results.slice(0, 10).map((r, i) => (
+                  {results.slice(0, 15).map((r, i) => (
                     <button
-                      key={r.itemSeq}
+                      key={(r.itemSeq || r.itemName) + i}
                       onClick={() => setSelectedIdx(i)}
-                      className={`shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      className={`shrink-0 flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         selectedIdx === i
                           ? "bg-[var(--accent)] text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
-                      {r.itemName?.slice(0, 12)}
+                      <span>{r._origin === "global" ? "🌐" : "🇰🇷"}</span>
+                      <span>{r.itemName?.slice(0, 12)}</span>
                     </button>
                   ))}
                 </div>
@@ -288,37 +318,80 @@ export default function ManualSearch({ locale }: ManualSearchProps) {
 }
 
 function PillDetail({ pill, locale }: { pill: SearchResult; locale: Locale }) {
+  const isGlobal = pill._origin === "global";
+  const image = pill.image || pill.itemImage;
+  const manufacturer = pill.manufacturer || pill.entpName;
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-gray-50">
-        {pill.shape && <span className="text-xs text-gray-600">◇ {pill.shape}</span>}
-        {pill.color1 && <span className="text-xs text-gray-600">● {pill.color1}{pill.color2 ? `/${pill.color2}` : ""}</span>}
-        {pill.markFront && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintFront")}: {pill.markFront}</span>}
-        {pill.markBack && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintBack")}: {pill.markBack}</span>}
+      {/* Origin badge */}
+      <div className="flex items-center gap-2">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+          isGlobal ? "bg-blue-100 text-blue-700" : "bg-[var(--accent-light)] text-[var(--accent)]"
+        }`}>
+          {isGlobal ? "🌐 " + t(locale, "globalDB") : "🇰🇷 " + t(locale, "koreanDB")}
+        </span>
       </div>
 
-      <div>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{t(locale, "drugName")}</div>
-        <div className="font-medium text-lg">{pill.itemName}</div>
-        <div className="text-sm text-[var(--text-muted)]">{pill.entpName}</div>
-        {pill.className && <div className="text-xs text-[var(--text-muted)]">{pill.className}</div>}
+      {/* Header with image */}
+      <div className="flex items-start gap-4">
+        {image && (
+          <img
+            src={image}
+            alt={pill.itemName}
+            className="w-24 h-24 rounded-xl object-contain bg-white border border-[var(--border)] shrink-0 shadow-sm"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{t(locale, "drugName")}</div>
+          <div className="font-medium text-lg">{pill.itemName}</div>
+          {pill.genericName && (
+            <div className="text-sm text-[var(--text-muted)]">
+              <span className="text-xs">{t(locale, "globalGenericName")}: </span>{pill.genericName}
+            </div>
+          )}
+          {manufacturer && <div className="text-sm text-[var(--text-muted)]">{manufacturer}</div>}
+          {pill.className && <div className="text-xs text-[var(--text-muted)]">{pill.className}</div>}
+        </div>
       </div>
 
-      {pill.itemImage && (
-        <img
-          src={pill.itemImage}
-          alt={pill.itemName}
-          className="h-20 rounded-lg object-contain border border-[var(--border)]"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+      {/* Korean attributes */}
+      {!isGlobal && (pill.shape || pill.color1 || pill.markFront) && (
+        <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-gray-50">
+          {pill.shape && <span className="text-xs text-gray-600">◇ {pill.shape}</span>}
+          {pill.color1 && <span className="text-xs text-gray-600">● {pill.color1}{pill.color2 ? `/${pill.color2}` : ""}</span>}
+          {pill.markFront && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintFront")}: {pill.markFront}</span>}
+          {pill.markBack && <span className="text-xs font-mono text-green-700 bg-green-50 px-2 py-0.5 rounded">{t(locale, "imprintBack")}: {pill.markBack}</span>}
+        </div>
       )}
 
-      {pill.detail && (
+      {/* Global attributes */}
+      {isGlobal && (pill.dosageForm || pill.route || pill.ndc?.[0]) && (
+        <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-gray-50">
+          {pill.dosageForm && <span className="text-xs text-gray-600">{pill.dosageForm}</span>}
+          {pill.route && <span className="text-xs text-gray-600">{t(locale, "globalRoute")}: {pill.route}</span>}
+          {pill.ndc?.[0] && <span className="text-xs font-mono text-gray-600">{t(locale, "globalNDC")}: {pill.ndc[0]}</span>}
+        </div>
+      )}
+
+      {/* Korean detail */}
+      {!isGlobal && pill.detail && (
         <div className="space-y-2 pt-2 border-t border-[var(--border)]">
           {pill.detail.efcyQesitm && <InfoBlock label={t(locale, "efficacy")} value={pill.detail.efcyQesitm} locale={locale} />}
           {pill.detail.useMethodQesitm && <InfoBlock label={t(locale, "dosage")} value={pill.detail.useMethodQesitm} locale={locale} />}
           {pill.detail.atpnWarnQesitm && <InfoBlock label={t(locale, "precautions")} value={pill.detail.atpnWarnQesitm} warn locale={locale} />}
           {pill.detail.seQesitm && <InfoBlock label={t(locale, "sideEffects")} value={pill.detail.seQesitm} locale={locale} />}
+        </div>
+      )}
+
+      {/* Global detail */}
+      {isGlobal && (
+        <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+          {pill.indications && <InfoBlock label={t(locale, "globalIndications")} value={pill.indications} locale={locale} />}
+          {pill.dosage && <InfoBlock label={t(locale, "dosage")} value={pill.dosage} locale={locale} />}
+          {pill.warnings && <InfoBlock label={t(locale, "globalWarnings")} value={pill.warnings} warn locale={locale} />}
+          {pill.sideEffects && <InfoBlock label={t(locale, "sideEffects")} value={pill.sideEffects} locale={locale} />}
         </div>
       )}
     </div>

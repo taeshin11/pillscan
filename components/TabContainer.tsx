@@ -6,13 +6,12 @@ import PillScanner from "./PillScanner";
 import ManualSearch from "./ManualSearch";
 import PillCounter from "./PillCounter";
 import HistoryView from "./HistoryView";
-import GlobalSearch from "./GlobalSearch";
 
 interface TabContainerProps {
   locale: Locale;
 }
 
-type TabId = "photo" | "manual" | "global" | "count" | "history";
+type TabId = "photo" | "manual" | "count" | "history";
 
 export default function TabContainer({ locale }: TabContainerProps) {
   const [activeTab, setActiveTab] = useState<TabId>("photo");
@@ -20,7 +19,6 @@ export default function TabContainer({ locale }: TabContainerProps) {
   const tabs: { id: TabId; key: any }[] = [
     { id: "photo", key: "tabPhoto" },
     { id: "manual", key: "tabManual" },
-    { id: "global", key: "tabGlobal" },
     { id: "count", key: "tabCount" },
     { id: "history", key: "tabHistory" },
   ];
@@ -33,7 +31,7 @@ export default function TabContainer({ locale }: TabContainerProps) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 px-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+              className={`flex-1 py-2.5 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 activeTab === tab.id
                   ? "bg-[var(--accent)] text-white shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -47,7 +45,6 @@ export default function TabContainer({ locale }: TabContainerProps) {
 
       {activeTab === "photo" && <PillScanner locale={locale} />}
       {activeTab === "manual" && <ManualSearch locale={locale} />}
-      {activeTab === "global" && <GlobalSearch locale={locale} />}
       {activeTab === "count" && <PillCounter locale={locale} />}
       {activeTab === "history" && <HistoryView locale={locale} />}
     </div>

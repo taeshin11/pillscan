@@ -21,7 +21,7 @@ const ko = {
 
   // Tabs
   tabPhoto: "📷 사진",
-  tabManual: "🔍 모양",
+  tabManual: "🔍 검색",
   tabCount: "🔢 개수",
   tabHistory: "📖 기록",
   tabGlobal: "🌐 해외약",
@@ -219,7 +219,7 @@ const en: typeof ko = {
   medicalDisclaimer: "Not a substitute for professional medical advice",
 
   tabPhoto: "📷 Photo",
-  tabManual: "🔍 Shape",
+  tabManual: "🔍 Search",
   tabCount: "🔢 Count",
   tabHistory: "📖 History",
   tabGlobal: "🌐 Global",

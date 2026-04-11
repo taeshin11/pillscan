@@ -2,9 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loadPillIdDatabase,
   loadDrugDatabase,
+  loadGlobalDatabase,
   enrichPillIdResults,
+  searchByAttributes,
+  searchDrug,
+  searchGlobalDrug,
   type PillIdRecord,
 } from "@/lib/drugDatabase";
+
+/** Fetch pill image from NIH RxImage API. */
+async function fetchRxImage(name: string, ndc?: string): Promise<string | null> {
+  try {
+    if (ndc) {
+      const ndcClean = ndc.replace(/-/g, "");
+      const r = await fetch(
+        `https://rximage.nlm.nih.gov/api/rximage/1/rxnav?ndc=${ndcClean}&resolution=120`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const img = d?.nlmRxImages?.[0]?.imageUrl;
+        if (img) return img;
+      }
+    }
+    if (name) {
+      const cleanName = name.split(/[\s,]/)[0].trim();
+      const r = await fetch(
+        `https://rximage.nlm.nih.gov/api/rximage/1/rxbase?name=${encodeURIComponent(cleanName)}&resolution=120`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const img = d?.nlmRxImages?.[0]?.imageUrl;
+        if (img) return img;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
@@ -12,58 +47,73 @@ export async function GET(req: NextRequest) {
   const shape = (params.get("shape") || "").trim();
   const color = (params.get("color") || "").trim();
   const form = (params.get("form") || "").trim();
+  const name = (params.get("name") || "").trim(); // free-text search
 
-  if (!imprint && !shape && !color) {
-    return NextResponse.json({ error: "하나 이상의 검색 조건을 입력해주세요." }, { status: 400 });
+  if (!imprint && !shape && !color && !name) {
+    return NextResponse.json({ error: "검색 조건을 입력해주세요." }, { status: 400 });
   }
 
-  const db = loadPillIdDatabase();
+  const pillIdDb = loadPillIdDatabase();
   const detailDb = loadDrugDatabase();
+  const globalDb = loadGlobalDatabase();
 
-  const scored = db.map((r) => {
-    let score = 0;
+  // ── Korean attribute search ──────────────────────────────
+  let koreanResults: any[] = [];
+  if (imprint || shape || color) {
+    const matches = searchByAttributes(
+      { imprint, shape, color },
+      pillIdDb,
+      20
+    );
+    koreanResults = enrichPillIdResults(matches, detailDb);
+  }
 
-    // Shape match
-    if (shape && r.shape === shape) score += 30;
-    else if (shape && r.shape !== shape) return { record: r, score: -1 };
-
-    // Color match
-    if (color) {
-      if (r.color1 === color || r.color2 === color) score += 25;
-      else return { record: r, score: -1 };
+  // ── Korean name search ───────────────────────────────────
+  if (name) {
+    // Find pills in pill_id DB whose name matches
+    const nameMatches = pillIdDb
+      .filter((p) => p.itemName?.toLowerCase().includes(name.toLowerCase()))
+      .slice(0, 20);
+    const enriched = enrichPillIdResults(nameMatches, detailDb);
+    // Merge with korean results, dedupe
+    const seen = new Set(koreanResults.map((r: any) => r.itemSeq));
+    for (const r of enriched) {
+      if (!seen.has(r.itemSeq)) {
+        koreanResults.push(r);
+        seen.add(r.itemSeq);
+      }
     }
+  }
 
-    // Form match
-    if (form) {
-      const chart = (r.chart || "").toLowerCase();
-      const name = (r.itemName || "").toLowerCase();
-      if (form === "정제" && (chart.includes("정") || name.includes("정"))) score += 10;
-      else if (form === "경질캡슐" && (chart.includes("경질캡슐") || name.includes("캡슐"))) score += 10;
-      else if (form === "연질캡슐" && (chart.includes("연질캡슐") || name.includes("연질"))) score += 10;
-      else if (form) return { record: r, score: -1 };
-    }
+  // ── Global (FDA) search by name only ─────────────────────
+  let globalResults: any[] = [];
+  if (name) {
+    globalResults = searchGlobalDrug(name, globalDb, 10);
+    // Enrich top 5 with NIH images
+    const top5 = globalResults.slice(0, 5);
+    const images = await Promise.all(
+      top5.map((r) => fetchRxImage(r.itemName || r.genericName, r.ndc?.[0]))
+    );
+    globalResults = globalResults.map((r, i) => ({
+      ...r,
+      image: i < 5 ? images[i] || undefined : undefined,
+      _origin: "global" as const,
+    }));
+  }
 
-    // Imprint match (highest priority)
-    if (imprint) {
-      const q = imprint.toLowerCase();
-      const front = (r.markFront || "").toLowerCase();
-      const back = (r.markBack || "").toLowerCase();
-      if (front === q || back === q) score += 50;
-      else if (front.includes(q) || back.includes(q)) score += 30;
-      else if (q.split(/\s+/).some((t) => t && (front.includes(t) || back.includes(t)))) score += 15;
-      else score -= 5;
-    }
+  // Mark Korean results origin
+  koreanResults = koreanResults.map((r) => ({ ...r, _origin: "korean" as const }));
 
-    return { record: r, score };
+  // Combined unified result
+  const combined = [
+    ...koreanResults.slice(0, 15),
+    ...globalResults.slice(0, 10),
+  ];
+
+  return NextResponse.json({
+    results: combined,
+    korean: koreanResults.slice(0, 15),
+    global: globalResults,
+    total: combined.length,
   });
-
-  const matches = scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 20)
-    .map((s) => s.record);
-
-  const enriched = enrichPillIdResults(matches, detailDb);
-
-  return NextResponse.json({ results: enriched, total: enriched.length });
 }
