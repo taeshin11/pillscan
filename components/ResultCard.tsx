@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Locale } from "@/lib/translations";
 
 interface ResultCardProps {
@@ -12,11 +12,45 @@ interface ResultCardProps {
   uploadedFiles?: File[];
 }
 
+interface DDInteraction {
+  drug1: string;
+  drug2: string;
+  description: string;
+  severity?: "high" | "moderate" | "low";
+}
+
 export default function ResultCard({ result, t, onReset, onAddPhoto, uploadedFiles }: ResultCardProps) {
   const { pills, count } = result;
   const [activePill, setActivePill] = useState(0);
   const [contributed, setContributed] = useState(false);
   const [showContribute, setShowContribute] = useState(true);
+  const [interactions, setInteractions] = useState<DDInteraction[]>([]);
+  const [checkingDDI, setCheckingDDI] = useState(false);
+
+  // Auto-check drug interactions when 2+ pills detected
+  useEffect(() => {
+    if (count >= 2) {
+      const drugNames: string[] = pills
+        .map((p: any) => {
+          const top = p.attrMatches?.[0]?.itemName || p.analysis.drugName;
+          return top && top !== "Unknown" ? top : null;
+        })
+        .filter(Boolean);
+      const unique = Array.from(new Set(drugNames));
+      if (unique.length >= 2) {
+        setCheckingDDI(true);
+        fetch("/api/interactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ drugNames: unique }),
+        })
+          .then((r) => r.json())
+          .then((d) => setInteractions(d.interactions || []))
+          .catch(() => {})
+          .finally(() => setCheckingDDI(false));
+      }
+    }
+  }, [count, pills]);
 
   const current = pills?.[activePill];
   if (!current) return null;
@@ -94,6 +128,44 @@ export default function ResultCard({ result, t, onReset, onAddPhoto, uploadedFil
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Drug Interaction Warning (auto-checked when 2+ drugs) */}
+      {interactions.length > 0 && (
+        <div className="card p-4 border-l-4 border-red-500 bg-red-50 animate-[fadeIn_0.4s_ease]">
+          <div className="flex items-start gap-3 mb-2">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-800">
+                약물 상호작용 경고 ({interactions.length}건)
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                감지된 약품들 사이에 상호작용이 보고되었습니다. 약사와 상의하세요.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2 mt-3">
+            {interactions.slice(0, 3).map((it, i) => (
+              <div key={i} className="text-xs bg-white rounded-lg p-2 border border-red-100">
+                <div className="font-semibold text-red-800 mb-0.5">
+                  {it.severity === "high" && "🔴 "}
+                  {it.severity === "moderate" && "🟡 "}
+                  {it.drug1} ↔ {it.drug2}
+                </div>
+                <div className="text-red-700 leading-snug">{it.description.slice(0, 200)}{it.description.length > 200 && "..."}</div>
+              </div>
+            ))}
+            {interactions.length > 3 && (
+              <p className="text-xs text-red-600 text-center">+{interactions.length - 3}개 추가 상호작용</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {checkingDDI && interactions.length === 0 && (
+        <div className="text-xs text-center text-[var(--text-muted)] italic py-1">
+          ⚙️ 약물 상호작용 확인 중...
         </div>
       )}
 
