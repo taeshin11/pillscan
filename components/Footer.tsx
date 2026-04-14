@@ -11,6 +11,7 @@ export default function Footer() {
             <ul className="space-y-1 text-[var(--text-muted)]">
               <li><Link href="/" className="hover:text-[var(--accent)]">Home</Link></li>
               <li><Link href="/about" className="hover:text-[var(--accent)]">About Us</Link></li>
+              <li><Link href="/developers" className="hover:text-[var(--accent)]">Developer API</Link></li>
             </ul>
           </div>
           <div>
